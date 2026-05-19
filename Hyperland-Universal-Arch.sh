@@ -158,13 +158,13 @@ main() {
     log_success "Detected package manager: $PKG_MANAGER"
     
     # 1. System Upgrade
-    log_header "Step 1/6: System Upgrade"
+    log_header "Step 1/7: System Upgrade"
     log "Syncing repositories and upgrading system..."
     pacman -Syu --noconfirm 2>&1 | tee -a "$LOG_FILE" || log_warning "System upgrade had issues"
     log_success "System upgraded"
     
     # 2. Base & Tooling Dependencies
-    log_header "Step 2/6: Installing Base System Packages"
+    log_header "Step 2/7: Installing Base System Packages"
     local base_packages=(
         git base-devel xorg-xwayland cmake meson ninja
         pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
@@ -173,6 +173,8 @@ main() {
         libnotify # For notifications support
         wl-clipboard xclip # Clipboard support for Wayland
         cliphist # Clipboard history
+        gtk3 gtk4 # GTK libraries for themes
+        sassc # SCSS compiler for themes
         hyprland # Core Hyprland (can fail on some distros, handled below)
     )
     
@@ -198,7 +200,7 @@ main() {
     fi
     
     # 3. Setup AUR Helper
-    log_header "Step 3/6: Setting up AUR Helper"
+    log_header "Step 3/7: Setting up AUR Helper"
     AUR_HELPER=$(setup_aur_helper)
     
     if [ -n "$AUR_HELPER" ]; then
@@ -208,7 +210,7 @@ main() {
     fi
     
     # 4. Installing Theming & Additional Packages
-    log_header "Step 4/6: Installing macOS Theme Components"
+    log_header "Step 4/7: Installing macOS Theme Components"
     
     local aur_packages=(
         swww # Wallpaper manager with smooth transitions
@@ -235,7 +237,7 @@ main() {
     log_success "Theme components installed"
     
     # 5. Dynamic GPU Driver Layer
-    log_header "Step 5/6: Installing GPU Drivers"
+    log_header "Step 5/7: Installing GPU Drivers"
     log "Detecting GPU..."
     GPU=$(detect_gpu)
     log "GPU Detected: $GPU"
@@ -266,8 +268,68 @@ NVIDIA_CONF
         install_with_pacman mesa lib32-mesa
     fi
     
-    # 6. Create Configuration Files
-    log_header "Step 6/6: Generating Hyprland & Waybar Configurations"
+    # 6. Install macOS GTK Themes
+    log_header "Step 6/7: Installing macOS GTK Themes"
+    
+    # Create working directory for theme clones
+    WORK_DIR="/tmp/macos-themes-$$"
+    mkdir -p "$WORK_DIR"
+    
+    # Function to cleanup work directory
+    cleanup_themes() {
+        log_info "Cleaning up temporary theme files..."
+        rm -rf "$WORK_DIR"
+    }
+    trap cleanup_themes EXIT
+    
+    cd "$WORK_DIR"
+    
+    # Clone and install MacTahoe-gtk-theme
+    log "Installing MacTahoe-gtk-theme..."
+    if git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1 2>&1 | tee -a "$LOG_FILE"; then
+        cd MacTahoe-gtk-theme
+        if [ -f install.sh ]; then
+            ./install.sh -b -l -HD --shell -i apple -sf --round --silent-mode 2>&1 | tee -a "$LOG_FILE" || log_warning "MacTahoe-gtk-theme installation had issues"
+            
+            # Apply tweaks
+            if [ -f tweaks.sh ]; then
+                sudo ./tweaks.sh -g -i apple -h smaller -sf -nd -nb --silent-mode 2>&1 | tee -a "$LOG_FILE" || log_warning "tweaks.sh had issues"
+                ./tweaks.sh -d -f --silent-mode 2>&1 | tee -a "$LOG_FILE" || log_warning "tweaks.sh had issues"
+                ./tweaks.sh -F -c Dark --silent-mode 2>&1 | tee -a "$LOG_FILE" || log_warning "tweaks.sh had issues"
+            fi
+        else
+            log_warning "install.sh not found in MacTahoe-gtk-theme"
+        fi
+        cd "$WORK_DIR"
+    else
+        log_warning "Failed to clone MacTahoe-gtk-theme"
+    fi
+    
+    # Clone and install MacTahoe-icon-theme
+    log "Installing MacTahoe-icon-theme..."
+    if git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git --depth=1 2>&1 | tee -a "$LOG_FILE"; then
+        cd MacTahoe-icon-theme
+        if [ -f install.sh ]; then
+            ./install.sh -b 2>&1 | tee -a "$LOG_FILE" || log_warning "MacTahoe-icon-theme installation had issues"
+            
+            # Install cursors if available
+            if [ -d cursors ] && [ -f cursors/install.sh ]; then
+                cd cursors
+                sudo ./install.sh 2>&1 | tee -a "$LOG_FILE" || log_warning "Cursor installation had issues"
+                cd ..
+            fi
+        else
+            log_warning "install.sh not found in MacTahoe-icon-theme"
+        fi
+        cd "$WORK_DIR"
+    else
+        log_warning "Failed to clone MacTahoe-icon-theme"
+    fi
+    
+    log_success "macOS GTK themes installed"
+    
+    # 7. Create Configuration Files
+    log_header "Step 7/7: Generating Hyprland & Waybar Configurations"
     
     mkdir -p "$CONFIG_DIR/hypr" "$CONFIG_DIR/waybar" "$CONFIG_DIR/crystal-dock"
     
@@ -561,7 +623,7 @@ WAYBAR_STYLE_EOF
     
     log_success "Waybar style created"
     
-    # 7. Download wallpaper
+    # 8. Download wallpaper
     log "Setting up wallpaper..."
     mkdir -p "$HOME/Pictures/Wallpapers"
     
@@ -581,7 +643,7 @@ WAYBAR_STYLE_EOF
     
     log_success "Wallpaper configured"
     
-    # 8. Create session file for systemd-user (optional but recommended)
+    # 9. Create session file for systemd-user (optional but recommended)
     mkdir -p "$HOME/.config/systemd/user"
     cat > "$HOME/.config/systemd/user/hyprland-session.target" << 'SYSTEMD_EOF'
 [Unit]
@@ -630,10 +692,17 @@ SYSTEMD_EOF
 - NVIDIA: Hardware acceleration enabled via nvidia.conf
 - AMD/Intel: Mesa drivers installed for Wayland support
 
+🎨 Themes Applied:
+- MacTahoe GTK Theme (macOS Big Sur inspired)
+- MacTahoe Icon Theme
+- Custom Waybar styling with frosted glass effect
+- Hyprland window decorations matching macOS aesthetic
+
 📝 Troubleshooting:
 - If Hyprland doesn't start, check: Xwayland, graphics drivers
 - Missing components? Install manually via paru or yay
 - Theme issues? Verify ~/.config/hypr/ files exist
+- For theme refresh: Log out and log back in
 
 ========================================================
 
