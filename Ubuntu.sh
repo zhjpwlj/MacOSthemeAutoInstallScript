@@ -102,3 +102,22 @@ cd GNOME-macOS-Tahoe
 ./install.sh -l -d -la --flatpak
 sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0
 
+git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1
+cd MacTahoe-gtk-theme
+./install.sh -b -l -HD --shell -i apple -sf --round --silent-mode
+pkill firefox
+sudo ./tweaks.sh -g -i apple -h smaller -sf -nd -nb --silent-mode
+./tweaks.sh -d -f --silent-mode
+sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0
+./tweaks.sh -F -c Dark --silent-mode
+cd ..
+
+git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git
+cd MacTahoe-icon-theme
+./install.sh -b
+cd cursors
+sudo ./install.sh
+
+echo "----------------------------------------"
+echo "All MacOS themes installed."
+echo "reboot is recommended."
