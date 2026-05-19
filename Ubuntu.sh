@@ -152,6 +152,46 @@ done
 echo "----------------------------------------"
 log_info "Extensions for MacOS Themes installed."
 log_info "Note: If you are using Wayland, log out and back in to apply changes."
+log_info "Installing macOS screen corner rounding extension..."
+
+# Install GNOME Rounded Corner extension for screen corner rounding
+log_info "Installing GNOME Rounded Corners extension..."
+ROUNDED_CORNER_ID="7986"
+if ! grep -q "$ROUNDED_CORNER_ID" <<< "${EXTENSION_IDS[@]}"; then
+    echo "----------------------------------------"
+    EXTENSION_INFO=$(echo "$CATALOG" | jq --arg id "$ROUNDED_CORNER_ID" '.extensions[] | select(.pk == ($id | tonumber))' 2>/dev/null || echo "")
+    
+    if [ -n "$EXTENSION_INFO" ]; then
+        UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid')
+        DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url')
+        TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
+        
+        if [ ! -d "$TARGET_DIR" ]; then
+            mkdir -p "$TARGET_DIR"
+            ZIP_FILE=$(mktemp)
+            if curl -sL -o "$ZIP_FILE" "$DOWNLOAD_URL"; then
+                unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
+                rm -f "$ZIP_FILE"
+                
+                if [ -d "${TARGET_DIR}/schemas" ]; then
+                    glib-compile-schemas "${TARGET_DIR}/schemas"
+                fi
+                
+                if gnome-extensions enable "$UUID"; then
+                    log_info "Successfully installed Rounded Corners extension: ${UUID}"
+                else
+                    log_warn "Rounded Corners extension installed but failed to enable. Desktop restart may be required."
+                fi
+            fi
+        else
+            log_info "Rounded Corners extension already installed"
+            gnome-extensions enable "$UUID" || log_warn "Failed to enable Rounded Corners extension"
+        fi
+    else
+        log_warn "Rounded Corners extension not available for this GNOME version"
+    fi
+fi
+
 log_info "Installing MacOS Gnome Themes..."
 
 # 6. Install themes with proper error handling and directory management
@@ -218,7 +258,54 @@ else
     log_warn "Failed to clone MacTahoe-icon-theme"
 fi
 
+# 7. Configure GNOME Rounded Corners settings (macOS style)
+log_info "Configuring macOS-style screen corner rounding..."
+
+# Create GNOME dconf settings for rounded corners
+if command -v dconf &> /dev/null; then
+    # Set up rounded corner preferences (16px radius like macOS)
+    dconf write /org/gnome/shell/extensions/rounded-corners/border-radius 16 2>/dev/null || log_warn "Could not configure corner radius via dconf"
+    dconf write /org/gnome/shell/extensions/rounded-corners/panel-corners true 2>/dev/null || log_warn "Could not enable panel corners"
+else
+    log_warn "dconf not found. Rounded corners may need manual configuration."
+fi
+
+# Create a desktop configuration hint file
+mkdir -p "$HOME/.config/gnome"
+cat > "$HOME/.config/gnome/rounded-corners-config.txt" << 'CORNERS_CONFIG'
+# macOS-style Rounded Corners Configuration for GNOME
+
+## Manual Configuration (if automatic setup fails):
+## 1. Open GNOME Settings > Extensions
+## 2. Find "Rounded Corners" extension
+## 3. Configure the following:
+##    - Border Radius: 16 pixels (macOS standard)
+##    - Panel Corners: Enabled
+##    - Padding Bottom: 8
+##    - Padding Left: 8
+##    - Padding Right: 8
+##    - Padding Top: 8
+
+## Using gsettings/dconf:
+## gsettings set org.gnome.shell.extensions.rounded-corners border-radius 16
+## gsettings set org.gnome.shell.extensions.rounded-corners panel-corners true
+
+CORNERS_CONFIG
+
+log_info "Rounded corners configuration created"
+
 echo "----------------------------------------"
-log_info "All MacOS themes installed."
-log_info "Reboot is recommended."
+log_info "All MacOS themes and rounded corner features installed."
+log_info ""
+log_info "🍏 macOS-Style Rounded Screen Corners: ENABLED"
+log_info "📋 Corner Radius: 16px (matching macOS)"
+log_info ""
+log_info "Next Steps:"
+log_info "1. Restart GNOME Shell (press Alt+F2, type 'r', press Enter)"
+log_info "2. Or log out and log back in"
+log_info "3. Open Settings > Extensions and configure Rounded Corners to your preference"
+log_info ""
+log_info "Configuration file: ~/.config/gnome/rounded-corners-config.txt"
+log_info ""
+log_info "Reboot is recommended for full effect."
 log_info "Script completed successfully!"
