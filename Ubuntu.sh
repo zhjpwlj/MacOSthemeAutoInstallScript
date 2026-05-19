@@ -1,70 +1,127 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "root Privilege required to install dependencies."
-echo "please authencate."
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Logging functions
+log_info() { echo -e "${GREEN}[INFO]${NC} $*"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+
+# Exit handler for cleanup
+trap 'log_error "Script failed at line $LINENO"; exit 1' ERR
+
+# Working directory for theme clones
+WORK_DIR="/tmp/macos-themes-$$"
+mkdir -p "$WORK_DIR"
+
+cleanup() {
+    log_info "Cleaning up temporary files..."
+    rm -rf "$WORK_DIR"
+}
+trap cleanup EXIT
+
+log_info "root Privilege required to install dependencies."
+log_info "Please authenticate."
 
 # 0. Install Dependencies
+log_info "Installing system dependencies..."
+
+# Check if apt is available
+if ! command -v apt &> /dev/null; then
+    log_error "apt package manager not found. This script is designed for Debian/Ubuntu-based systems."
+    exit 1
+fi
 
 sudo apt update
-sudo apt install -y curl jq unzip build-essential procps file gnome-shell gnome-tweaks timeshift flatpak extension-manager git sassc libglib2.0-dev-bin libxml2-utils imagemagick dialog optipng inkscape
-sudo brew install gum
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"
-test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-echo "eval \"\$($(brew --prefix)/bin/brew shellenv)\"" >> ~/.bashrc
+sudo apt install -y curl jq unzip build-essential procps file gnome-shell gnome-tweaks \
+    timeshift flatpak extension-manager git sassc libglib2.0-dev-bin libxml2-utils \
+    imagemagick dialog optipng inkscape
 
-echo "all dependencies installed."
+# Install Homebrew first
+log_info "Installing Homebrew..."
+if ! command -v brew &> /dev/null; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    
+    # Set up Homebrew environment
+    if [ -d ~/.linuxbrew ]; then
+        eval "$(~/.linuxbrew/bin/brew shellenv)"
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+    elif [ -d /home/linuxbrew/.linuxbrew ]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+    fi
+else
+    log_warn "Homebrew is already installed"
+fi
+
+# Now install gum via Homebrew
+brew install gum
+
+# Setup Flatpak
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+log_info "All dependencies installed."
+
 # 1. Prerequisite check
+log_info "Checking prerequisites..."
 for cmd in curl jq unzip gnome-shell; do
     if ! command -v "$cmd" &> /dev/null; then
-        echo "Error: Required command '$cmd' is not installed." >&2
+        log_error "Required command '$cmd' is not installed."
         exit 1
     fi
 done
 
 # 2. Define the list of Extension IDs you want to install
 EXTENSION_IDS=("5489" "1488" "19" "3210" "3740" "1460" "3193")
-# exttensions: Search Light(5489), fuzzy Search(1488), User Themes(19), Compiz windows effect(3210), Compiz alike magic lamp effect(3740), Vitals(1460), Blur my Shell(3193)
+# Extensions: Search Light(5489), fuzzy Search(1488), User Themes(19), Compiz windows effect(3210), 
+# Compiz alike magic lamp effect(3740), Vitals(1460), Blur my Shell(3193)
 
 # 3. Detect the current GNOME Shell version
 GNOME_VERSION=$(gnome-shell --version | cut -d' ' -f3 | cut -d'.' -f1)
-echo "Detected GNOME Shell version: ${GNOME_VERSION}"
+log_info "Detected GNOME Shell version: ${GNOME_VERSION}"
 
 # 4. Fetch the full extension catalog for this GNOME version to minimize API calls
-API_URL="https://gnome.org{GNOME_VERSION}&limit=0"
-echo "Fetching compatible extension data..."
+API_URL="https://gnome.org/extensions/gnome/${GNOME_VERSION}/extensions.json?limit=0"
+log_info "Fetching compatible extension data..."
 CATALOG=$(curl -s "$API_URL")
+
+if [ -z "$CATALOG" ]; then
+    log_error "Failed to fetch extension catalog from API"
+    exit 1
+fi
 
 # 5. Process each extension ID in a loop
 for ID in "${EXTENSION_IDS[@]}"; do
     echo "----------------------------------------"
-    echo "Processing Extension ID: ${ID}"
+    log_info "Processing Extension ID: ${ID}"
 
     # Extract specific extension info from the pre-fetched catalog
-    EXTENSION_INFO=$(echo "$CATALOG" | jq --arg id "$ID" '.pkgs[] | select(.pkgs_id == ($id | tonumber))')
+    EXTENSION_INFO=$(echo "$CATALOG" | jq --arg id "$ID" '.extensions[] | select(.pk == ($id | tonumber))' 2>/dev/null || echo "")
 
     if [ -z "$EXTENSION_INFO" ]; then
-        echo "Warning: Extension ID ${ID} not found or incompatible with GNOME ${GNOME_VERSION}. Skipping."
+        log_warn "Extension ID ${ID} not found or incompatible with GNOME ${GNOME_VERSION}. Skipping."
         continue
     fi
 
     # Parse details
     UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid')
-    DOWNLOAD_PATH=$(echo "$EXTENSION_INFO" | jq -r '.download_url')
-    DOWNLOAD_URL="https://gnome.org${DOWNLOAD_PATH}"
+    DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url')
 
-    echo "Found: ${UUID}"
+    log_info "Found: ${UUID}"
     
     # Define target path
     TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
     
     # Skip if already installed to save bandwidth
     if [ -d "$TARGET_DIR" ]; then
-        echo "Extension ${UUID} is already installed. Skipping download."
+        log_info "Extension ${UUID} is already installed. Skipping download."
         # Ensure it is enabled anyway
-        gnome-extensions enable "$UUID" || true
+        gnome-extensions enable "$UUID" || log_warn "Failed to enable existing extension ${UUID}"
         continue
     fi
 
@@ -82,42 +139,86 @@ for ID in "${EXTENSION_IDS[@]}"; do
 
         # Enable extension
         if gnome-extensions enable "$UUID"; then
-            echo "Successfully enabled: ${UUID}"
+            log_info "Successfully enabled: ${UUID}"
         else
-            echo "Downloaded ${UUID}, but failed to enable. A desktop restart may be required."
+            log_warn "Downloaded ${UUID}, but failed to enable. A desktop restart may be required."
         fi
     else
-        echo "Error: Failed to download extension ID ${ID}."
+        log_error "Failed to download extension ID ${ID}."
         rm -f "$ZIP_FILE"
     fi
 done
 
 echo "----------------------------------------"
-echo "extensions for MacOS Themes installed."
-echo "Note: If you are using Wayland, log out and back in to apply changes."
-echo "installing MacOS Gnome Themes..."
+log_info "Extensions for MacOS Themes installed."
+log_info "Note: If you are using Wayland, log out and back in to apply changes."
+log_info "Installing MacOS Gnome Themes..."
 
-git clone https://github.com/kayozxo/GNOME-macOS-Tahoe
-cd GNOME-macOS-Tahoe
-./install.sh -l -d -la --flatpak
-sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0
+# 6. Install themes with proper error handling and directory management
+cd "$WORK_DIR"
 
-git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1
-cd MacTahoe-gtk-theme
-./install.sh -b -l -HD --shell -i apple -sf --round --silent-mode
-pkill firefox
-sudo ./tweaks.sh -g -i apple -h smaller -sf -nd -nb --silent-mode
-./tweaks.sh -d -f --silent-mode
-sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0
-./tweaks.sh -F -c Dark --silent-mode
-cd ..
+# Clone and install GNOME-macOS-Tahoe
+log_info "Installing GNOME-macOS-Tahoe theme..."
+if git clone https://github.com/kayozxo/GNOME-macOS-Tahoe; then
+    cd GNOME-macOS-Tahoe
+    if [ -f install.sh ]; then
+        ./install.sh -l -d -la --flatpak || log_warn "GNOME-macOS-Tahoe installation had issues"
+        sudo flatpak override --filesystem=xdg-config/gtk-3.0 || true
+        sudo flatpak override --filesystem=xdg-config/gtk-4.0 || true
+    else
+        log_warn "install.sh not found in GNOME-macOS-Tahoe"
+    fi
+    cd "$WORK_DIR"
+else
+    log_warn "Failed to clone GNOME-macOS-Tahoe"
+fi
 
-git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git
-cd MacTahoe-icon-theme
-./install.sh -b
-cd cursors
-sudo ./install.sh
+# Clone and install MacTahoe-gtk-theme
+log_info "Installing MacTahoe-gtk-theme..."
+if git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1; then
+    cd MacTahoe-gtk-theme
+    if [ -f install.sh ]; then
+        ./install.sh -b -l -HD --shell -i apple -sf --round --silent-mode || log_warn "MacTahoe-gtk-theme installation had issues"
+        
+        # Kill only if Firefox exists
+        if command -v firefox &> /dev/null; then
+            pkill firefox || true
+        fi
+        
+        sudo ./tweaks.sh -g -i apple -h smaller -sf -nd -nb --silent-mode || log_warn "tweaks.sh had issues"
+        ./tweaks.sh -d -f --silent-mode || log_warn "tweaks.sh had issues"
+        sudo flatpak override --filesystem=xdg-config/gtk-3.0 || true
+        sudo flatpak override --filesystem=xdg-config/gtk-4.0 || true
+        ./tweaks.sh -F -c Dark --silent-mode || log_warn "tweaks.sh had issues"
+    else
+        log_warn "install.sh not found in MacTahoe-gtk-theme"
+    fi
+    cd "$WORK_DIR"
+else
+    log_warn "Failed to clone MacTahoe-gtk-theme"
+fi
+
+# Clone and install MacTahoe-icon-theme
+log_info "Installing MacTahoe-icon-theme..."
+if git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git; then
+    cd MacTahoe-icon-theme
+    if [ -f install.sh ]; then
+        ./install.sh -b || log_warn "MacTahoe-icon-theme installation had issues"
+        
+        if [ -d cursors ] && [ -f cursors/install.sh ]; then
+            cd cursors
+            sudo ./install.sh || log_warn "Cursor installation had issues"
+            cd ..
+        fi
+    else
+        log_warn "install.sh not found in MacTahoe-icon-theme"
+    fi
+    cd "$WORK_DIR"
+else
+    log_warn "Failed to clone MacTahoe-icon-theme"
+fi
 
 echo "----------------------------------------"
-echo "All MacOS themes installed."
-echo "reboot is recommended."
+log_info "All MacOS themes installed."
+log_info "Reboot is recommended."
+log_info "Script completed successfully!"
