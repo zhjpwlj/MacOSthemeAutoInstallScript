@@ -80,7 +80,7 @@ brew install gum
 # Setup Flatpak
 sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-sudo flatpak install flathub com.mattjakeman.ExtensionManager
+sudo flatpak install -y flathub com.mattjakeman.ExtensionManager
 
 log_success "All dependencies installed."
 
