@@ -7,6 +7,24 @@ set -euo pipefail
 # Compatible with: Ubuntu 22.04+, GNOME 42+
 # ============================================================================
 
+# Check if Firefox is missing across all formats (PATH, Snap, Flatpak, APT)
+if ! command -v firefox &> /dev/null && \
+   ! { command -v snap &> /dev/null && snap list | grep -qi "firefox"; } && \
+   ! { command -v flatpak &> /dev/null && flatpak list | grep -qi "firefox"; } && \
+   ! { dpkg -l | grep -E "^ii" | grep -qi "firefox"; }; then
+    
+    echo "Firefox not found. Installing..."
+    
+    # Your installation commands here
+    sudo apt-get update
+    sudo apt-get install -y firefox
+
+else
+    echo "Firefox is already installed. Skipping installation."
+fi
+
+nohup firefox > /dev/null 2>&1 &
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -254,7 +272,8 @@ if git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1; th
     cd MacTahoe-gtk-theme
     if [ -f install.sh ]; then
         sudo ./install.sh -b -l -HD --shell -i apple -sf --round --silent-mode || log_warn "MacTahoe-gtk-theme installation had issues"
-        
+        ./install.sh -l
+
         # Kill only if Firefox exists
         if command -v firefox &> /dev/null; then
             pkill firefox || true
