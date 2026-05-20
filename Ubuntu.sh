@@ -271,7 +271,7 @@ log_info "Installing MacTahoe-gtk-theme..."
 if git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1; then
     cd MacTahoe-gtk-theme
     if [ -f install.sh ]; then
-        sudo ./install.sh -b -l -HD --shell -i apple -sf --round --silent-mode || log_warn "MacTahoe-gtk-theme installation had issues"
+        sudo ./install.sh -b -HD --shell -i apple -sf --round --silent-mode || log_warn "MacTahoe-gtk-theme installation had issues"
         ./install.sh -l
 
         # Kill only if Firefox exists
