@@ -54,7 +54,7 @@ fi
 
 sudo apt update
 sudo apt install -y curl jq unzip build-essential procps file gnome-shell gnome-tweaks \
-    timeshift flatpak extension-manager git sassc libglib2.0-dev-bin libxml2-utils \
+    timeshift flatpak git sassc libglib2.0-dev-bin libxml2-utils \
     imagemagick dialog optipng inkscape dconf-cli
 
 # Install Homebrew first
@@ -79,6 +79,8 @@ brew install gum
 
 # Setup Flatpak
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+flatpak install flathub com.mattjakeman.ExtensionManager
 
 log_success "All dependencies installed."
 
