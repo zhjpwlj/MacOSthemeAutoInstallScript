@@ -253,7 +253,7 @@ log_info "Installing MacTahoe-gtk-theme..."
 if git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1; then
     cd MacTahoe-gtk-theme
     if [ -f install.sh ]; then
-        ./install.sh -b -l -HD --shell -i apple -sf --round --silent-mode || log_warn "MacTahoe-gtk-theme installation had issues"
+        sudo ./install.sh -b -l -HD --shell -i apple -sf --round --silent-mode || log_warn "MacTahoe-gtk-theme installation had issues"
         
         # Kill only if Firefox exists
         if command -v firefox &> /dev/null; then
@@ -261,10 +261,10 @@ if git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1; th
         fi
         
         sudo ./tweaks.sh -g -i apple -h smaller -sf -nd -nb --silent-mode || log_warn "tweaks.sh had issues"
-        ./tweaks.sh -d -f --silent-mode || log_warn "tweaks.sh had issues"
+        sudo ./tweaks.sh -d -f --silent-mode || log_warn "tweaks.sh had issues"
         sudo flatpak override --filesystem=xdg-config/gtk-3.0 || true
         sudo flatpak override --filesystem=xdg-config/gtk-4.0 || true
-        ./tweaks.sh -F -c Dark --silent-mode || log_warn "tweaks.sh had issues"
+        sudo ./tweaks.sh -F -c Dark --silent-mode || log_warn "tweaks.sh had issues"
     else
         log_warn "install.sh not found in MacTahoe-gtk-theme"
     fi
