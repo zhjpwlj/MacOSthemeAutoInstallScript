@@ -260,6 +260,7 @@ for cmd in curl jq unzip gnome-shell; do
 done
 
 GNOME_VERSION=$(gnome-shell --version | cut -d' ' -f3 | cut -d'.' -f1-2)
+GNOME_VERSION_FULL=$(gnome-shell --version | cut -d' ' -f3)
 
 log_success "GNOME version detected: ${GNOME_VERSION}"
 
@@ -269,121 +270,86 @@ log_success "GNOME version detected: ${GNOME_VERSION}"
 
 log_header "Step 2/7: Installing GNOME Extensions"
 
-# Use extension UUIDs instead of numeric IDs
-declare -A EXTENSIONS=(
-    ["Search Light"]="search-light@icedman.github.io"
-    ["Fuzzy Search"]="fuzzy-app-search@Czarlie.gitlab.com"
-    ["User Themes"]="user-theme@gnome-shell-extensions.gcampax.github.com"
-    ["Compiz Windows Effect"]="compiz-windows-effect@hermes83.github.com"
-    ["Compiz Alike Magic Lamp"]="compiz-alike-magic-lamp-effect@hermes83.github.com"
-    ["Vitals"]="Vitals@CoreCoding.github.io"
-    ["Blur My Shell"]="blur-my-shell@aunetx"
-    ["BackSlide"]="backslide@codeisland.org"
-    ["Bluetooth Quick Connect"]="bluetooth-quick-connect@bjarosze.gmail.com"
-    ["GSConnect"]="gsconnect@andyholmes.github.io"
-    ["Just Perfection"]="just-perfection-desktop@just-perfection.com"
-    ["Sound Input Output Device Chooser"]="sound-output-device-chooser@kgshepherd.github.com"
-    ["Transparent Notifications"]="transparent-notifications@vhanla.github.com"
-    ["Clipboard Indicator"]="clipboard-indicator@tudmfactot.com"
-    ["Transparent Windows Moving"]="transparent-windows-moving@vhanla.github.com"
-    ["Space Bar"]="space-bar@ladeiko.com"
-    ["Ubuntu Window Tiling Supporter"]="ubuntu-window-tiling-supporter@ubuntu.com"
-    ["Media Controls"]="mediacontrols@cliffniff.github.com"
-    ["App Menu is Back"]="app-menu-is-back@gnome-shell-extensions.gcampax.github.com"
-    ["Coverflow Alt+Tab"]="coverflowalttab@dmo60.de"
-    ["Logo Menu"]="logomenu@artsrun.com"
-    ["Rounded Window Corners"]="rounded-window-corners@fxn76.com"
-    ["Rounded Corners"]="rounded-corners@fxn"
-    ["Dash to Dock"]="dash-to-dock@micxgo.github.com"
-)
-
-GNOME_VERSION_FULL=$(gnome-shell --version | cut -d' ' -f3)
-
-# Function to fetch extension info by UUID
-fetch_extension_info() {
-    local uuid="$1"
-    local version="$2"
+# Function to install extension from GitHub
+install_extension_from_github() {
+    local ext_name="$1"
+    local repo_url="$2"
+    local branch="${3:-main}"
     
-    # Use search API with proper parameters
-    local search_url="https://extensions.gnome.org/extension-query/?search=${uuid}&shell_version=${version}"
+    echo "----------------------------------------"
+    log_info "Installing: $ext_name from GitHub..."
     
-    log_info "Querying: $search_url"
+    local temp_dir="${WORK_DIR}/ext-${ext_name// /-}"
+    mkdir -p "$temp_dir"
     
-    local response=$(curl -fsSL "$search_url" 2>/dev/null || echo "")
-    
-    if [ -z "$response" ]; then
+    if ! git clone --depth=1 --branch "$branch" "$repo_url" "$temp_dir" 2>/dev/null; then
+        log_warn "Failed to clone $ext_name from $repo_url"
         return 1
     fi
     
-    # Try to find the extension by UUID in the response
-    echo "$response" | jq --arg uuid "$uuid" '.extensions[] | select(.uuid == $uuid)' 2>/dev/null || echo ""
+    # Find metadata.json to get UUID
+    local metadata_file=$(find "$temp_dir" -name "metadata.json" | head -1)
+    
+    if [ ! -f "$metadata_file" ]; then
+        log_warn "No metadata.json found for $ext_name"
+        return 1
+    fi
+    
+    local uuid=$(jq -r '.uuid // .name' "$metadata_file" 2>/dev/null)
+    
+    if [ -z "$uuid" ]; then
+        log_warn "Could not extract UUID from $ext_name"
+        return 1
+    fi
+    
+    local target_dir="${HOME}/.local/share/gnome-shell/extensions/${uuid}"
+    
+    if [ -d "$target_dir" ]; then
+        log_info "Extension already installed: $ext_name"
+        gnome-extensions enable "$uuid" 2>/dev/null || true
+        return 0
+    fi
+    
+    mkdir -p "$target_dir"
+    
+    # Copy extension files
+    cp -r "$temp_dir"/* "$target_dir/" 2>/dev/null || true
+    
+    # Compile schemas if present
+    if [ -d "${target_dir}/schemas" ]; then
+        glib-compile-schemas "${target_dir}/schemas" 2>/dev/null || true
+    fi
+    
+    # Enable extension
+    if gnome-extensions enable "$uuid" 2>/dev/null; then
+        log_success "Installed & Enabled: $ext_name"
+        return 0
+    else
+        log_warn "Installed but could not enable: $ext_name (may require login)"
+        return 0
+    fi
 }
 
-# Install extensions by UUID
-for name in "${!EXTENSIONS[@]}"; do
-    UUID="${EXTENSIONS[$name]}"
-    
-    echo "----------------------------------------"
-    log_info "Installing: $name (UUID: $UUID)"
-    
-    EXTENSION_INFO=$(fetch_extension_info "$UUID" "$GNOME_VERSION_FULL")
-    
-    if [ -z "$EXTENSION_INFO" ]; then
-        log_warn "Extension '$name' not found or incompatible with GNOME $GNOME_VERSION_FULL"
-        continue
-    fi
-    
-    DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url // empty')
-    
-    if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-        log_warn "No download URL found for $name"
-        continue
-    fi
-    
-    TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
-    
-    if [ -d "$TARGET_DIR" ]; then
-        log_info "Extension already installed: $name"
-        gnome-extensions enable "$UUID" || true
-        continue
-    fi
-    
-    mkdir -p "$TARGET_DIR"
-    
-    ZIP_FILE=$(mktemp)
-    
-    # Construct full download URL
-    if [[ "$DOWNLOAD_URL" == http* ]]; then
-        FULL_DOWNLOAD_URL="$DOWNLOAD_URL"
-    else
-        FULL_DOWNLOAD_URL="https://extensions.gnome.org${DOWNLOAD_URL}"
-    fi
-    
-    log_info "Downloading from: $FULL_DOWNLOAD_URL"
-    
-    if curl -fsSL -o "$ZIP_FILE" "$FULL_DOWNLOAD_URL" 2>/dev/null; then
-        if unzip -t "$ZIP_FILE" >/dev/null 2>&1; then
-            unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
-            rm -f "$ZIP_FILE"
-            
-            if [ -d "${TARGET_DIR}/schemas" ]; then
-                glib-compile-schemas "${TARGET_DIR}/schemas" || true
-            fi
-            
-            if gnome-extensions enable "$UUID"; then
-                log_success "Enabled: $name"
-            else
-                log_warn "Installed but failed to enable: $name"
-            fi
-        else
-            log_warn "Downloaded file is not a valid ZIP for $name"
-            rm -f "$ZIP_FILE"
-        fi
-    else
-        log_warn "Download failed for $name (network error)"
-        rm -f "$ZIP_FILE"
-    fi
-done
+# Install extensions from GitHub repos
+install_extension_from_github "Blur My Shell" "https://github.com/aunetx/blur-my-shell.git"
+install_extension_from_github "Dash to Dock" "https://github.com/micxgo/dash-to-dock.git"
+install_extension_from_github "User Themes" "https://github.com/GNOME/gnome-shell-extensions.git" "gnome-45" || \
+install_extension_from_github "User Themes" "https://github.com/GNOME/gnome-shell-extensions.git"
+install_extension_from_github "Rounded Corners" "https://github.com/fxn76/rounded-window-corners.git"
+install_extension_from_github "GSConnect" "https://github.com/andyholmes/gnome-shell-mobile-connector.git"
+install_extension_from_github "Vitals" "https://github.com/corecoding/Vitals.git"
+install_extension_from_github "Just Perfection" "https://github.com/just-perfection-git/just-perfection.git"
+install_extension_from_github "Transparent Notifications" "https://github.com/vhanla/transparent-notifications.git"
+install_extension_from_github "Clipboard Indicator" "https://github.com/tudmfactot/clipboard-indicator.git"
+install_extension_from_github "Space Bar" "https://github.com/ladeiko/space-bar.git"
+install_extension_from_github "Media Controls" "https://github.com/cliffniff/media-controls.git"
+install_extension_from_github "Coverflow Alt+Tab" "https://github.com/dmo60/CoverflowAltTab.git"
+install_extension_from_github "Logo Menu" "https://github.com/artsrun/logo-menu.git"
+install_extension_from_github "Fuzzy Search" "https://github.com/Czarlie/Fuzzy-App-Search.git"
+install_extension_from_github "Search Light" "https://github.com/icedman/search-light.git"
+install_extension_from_github "BackSlide" "https://github.com/codeisland/backslide.git"
+
+log_success "Extension installation completed."
 
 SESSION_TYPE="${XDG_SESSION_TYPE:-unknown}"
 
@@ -402,62 +368,14 @@ fi
 # Step 3
 # ============================================================================
 
-log_header "Step 3/7: Installing Rounded Corners"
+log_header "Step 3/7: Installing Rounded Corners (Advanced)"
 
-ROUNDED_CORNER_UUID="rounded-corners@fxn"
+echo "----------------------------------------"
+log_info "Installing Rounded Window Corners..."
 
-log_info "Installing Rounded Corners..."
+install_extension_from_github "Rounded Window Corners" "https://github.com/fxn76/rounded-window-corners.git"
 
-EXTENSION_INFO=$(fetch_extension_info "$ROUNDED_CORNER_UUID" "$GNOME_VERSION_FULL")
-
-if [ -n "$EXTENSION_INFO" ]; then
-    DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url // empty')
-    
-    if [ -n "$DOWNLOAD_URL" ] && [ "$DOWNLOAD_URL" != "null" ]; then
-        TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${ROUNDED_CORNER_UUID}"
-        
-        if [ ! -d "$TARGET_DIR" ]; then
-            mkdir -p "$TARGET_DIR"
-            
-            ZIP_FILE=$(mktemp)
-            
-            if [[ "$DOWNLOAD_URL" == http* ]]; then
-                FULL_DOWNLOAD_URL="$DOWNLOAD_URL"
-            else
-                FULL_DOWNLOAD_URL="https://extensions.gnome.org${DOWNLOAD_URL}"
-            fi
-            
-            log_info "Downloading Rounded Corners from: $FULL_DOWNLOAD_URL"
-            
-            if curl -fsSL -o "$ZIP_FILE" "$FULL_DOWNLOAD_URL" 2>/dev/null; then
-                if unzip -t "$ZIP_FILE" >/dev/null 2>&1; then
-                    unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
-                    rm -f "$ZIP_FILE"
-                    
-                    if [ -d "${TARGET_DIR}/schemas" ]; then
-                        glib-compile-schemas "${TARGET_DIR}/schemas" || true
-                    fi
-                    
-                    gnome-extensions enable "$ROUNDED_CORNER_UUID" || true
-                    
-                    log_success "Rounded Corners installed."
-                else
-                    log_warn "Downloaded Rounded Corners file is not a valid ZIP."
-                    rm -f "$ZIP_FILE"
-                fi
-            else
-                log_warn "Failed to download Rounded Corners (network error)"
-                rm -f "$ZIP_FILE"
-            fi
-        else
-            log_info "Rounded Corners already installed."
-        fi
-    else
-        log_warn "No download URL found for Rounded Corners"
-    fi
-else
-    log_warn "Rounded Corners extension not found or incompatible."
-fi
+log_success "Rounded corners configuration step completed."
 
 # ============================================================================
 # Step 4
@@ -486,7 +404,7 @@ if git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git Mac
         sudo ./tweaks.sh -g -i apple -h smaller -sf -nd -nb --silent-mode || true
 
         # Only apply Dash to Dock tweaks if it's installed
-        if command -v gnome-extensions &> /dev/null && gnome-extensions list | grep -q "dash-to-dock"; then
+        if command -v gnome-extensions &> /dev/null && gnome-extensions list | grep -q "dash-to-dock" 2>/dev/null; then
             sudo ./tweaks.sh -d -f --silent-mode || true
         else
             log_info "Dash to Dock not installed, skipping related tweaks."
@@ -560,13 +478,8 @@ if command -v dconf &> /dev/null; then
 
     # Fixed: Handle dconf permission errors in non-interactive environments
     if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-        dconf write /org/gnome/shell/extensions/rounded-corners/border-radius 16 || true
-        dconf write /org/gnome/shell/extensions/rounded-corners/panel-corners true || true
-
-        dconf write /org/gnome/shell/extensions/rounded-corners/padding-bottom 8 || true
-        dconf write /org/gnome/shell/extensions/rounded-corners/padding-left 8 || true
-        dconf write /org/gnome/shell/extensions/rounded-corners/padding-right 8 || true
-        dconf write /org/gnome/shell/extensions/rounded-corners/padding-top 8 || true
+        dconf write /org/gnome/shell/extensions/rounded-window-corners/border-radius 16 2>/dev/null || true
+        dconf write /org/gnome/shell/extensions/rounded-window-corners/border-width 1 2>/dev/null || true
 
         log_success "Rounded corner configuration applied."
     else
@@ -588,13 +501,9 @@ mkdir -p "$HOME/.config/gnome/corner-rounding"
 cat > "$HOME/.config/gnome/corner-rounding/apply-config.sh" << 'EOF'
 #!/bin/bash
 
-dconf write /org/gnome/shell/extensions/rounded-corners/border-radius 16
-dconf write /org/gnome/shell/extensions/rounded-corners/panel-corners true
-
-dconf write /org/gnome/shell/extensions/rounded-corners/padding-bottom 8
-dconf write /org/gnome/shell/extensions/rounded-corners/padding-left 8
-dconf write /org/gnome/shell/extensions/rounded-corners/padding-right 8
-dconf write /org/gnome/shell/extensions/rounded-corners/padding-top 8
+# Apply rounded corner configurations
+dconf write /org/gnome/shell/extensions/rounded-window-corners/border-radius 16 2>/dev/null || true
+dconf write /org/gnome/shell/extensions/rounded-window-corners/border-width 1 2>/dev/null || true
 
 echo "Configuration applied."
 EOF
@@ -626,14 +535,37 @@ Installed:
   ✓ Icon Themes
   ✓ Rounded Corners
   ✓ Blur Effects
-  ✓ GNOME Extensions (24 extensions)
+  ✓ GNOME Extensions (16 extensions installed)
   ✓ macOS-style Appearance
+
+Extensions Installed:
+  • Blur My Shell
+  • Dash to Dock
+  • User Themes
+  • Rounded Window Corners
+  • GSConnect
+  • Vitals
+  • Just Perfection
+  • Transparent Notifications
+  • Clipboard Indicator
+  • Space Bar
+  • Media Controls
+  • Coverflow Alt+Tab
+  • Logo Menu
+  • Fuzzy Search
+  • Search Light
+  • BackSlide
 
 Restore:
   sudo timeshift --list
 
 Quick Config:
   ~/.config/gnome/corner-rounding/apply-config.sh
+
+Next Steps:
+  1. Log out and log back in
+  2. Enable additional extensions in GNOME Extensions app
+  3. Customize settings in GNOME Tweaks
 
 ========================================================
 EOF
