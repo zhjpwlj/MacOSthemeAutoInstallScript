@@ -90,10 +90,22 @@ trap cleanup EXIT
 # ============================================================================
 # Agreement Screen
 # ============================================================================
+#!/bin/bash
 
-clear
+# 引数に -y が含まれているかチェック
+SKIP_AGREE=false
+for arg in "$@"; do
+    if [[ "$arg" == "-y" ]]; then
+        SKIP_AGREE=true
+        break
+    fi
+done
 
-cat << 'EOF'
+# -y が指定されていない場合のみ警告と確認を表示
+if [ "$SKIP_AGREE" = false ]; then
+    clear
+
+    cat << 'EOF'
 ========================================================
 🍏 macOS Liquid-Glass Installer
 ========================================================
@@ -119,11 +131,12 @@ Proceed only if you understand the risks.
 ========================================================
 EOF
 
-read -rp "Do you agree and want to continue? (yes/no): " AGREE
+    read -rp "Do you agree and want to continue? (yes/no): " AGREE
 
-if [[ "$AGREE" != "yes" ]]; then
-    echo "Installation cancelled."
-    exit 0
+    if [[ "$AGREE" != "yes" ]]; then
+        echo "Installation cancelled."
+        exit 0
+    fi
 fi
 
 # ============================================================================
