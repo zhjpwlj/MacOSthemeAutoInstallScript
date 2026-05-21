@@ -413,27 +413,6 @@ log_header "Step 4/7: Installing Themes"
 
 cd "$WORK_DIR"
 
-# GNOME-macOS-Tahoe
-log_info "Installing GNOME-macOS-Tahoe..."
-
-if [ ! -d "GNOME-macOS-Tahoe" ]; then
-    if git clone --depth=1 https://github.com/kayozxo/GNOME-macOS-Tahoe.git; then
-
-        cd GNOME-macOS-Tahoe
-
-        if [ -f install.sh ]; then
-
-            ./install.sh -l -d -la --flatpak || true
-
-            flatpak override --user --filesystem=xdg-config/gtk-3.0 || true
-            flatpak override --user --filesystem=xdg-config/gtk-4.0 || true
-        fi
-
-        cd "$WORK_DIR"
-    fi
-else
-    log_info "GNOME-macOS-Tahoe already cloned, skipping."
-fi
 
 # MacTahoe GTK
 log_info "Installing MacTahoe GTK..."
@@ -462,6 +441,30 @@ if git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git Mac
 
     cd "$WORK_DIR"
 fi
+
+
+# GNOME-macOS-Tahoe
+log_info "Installing GNOME-macOS-Tahoe..."
+
+if [ ! -d "GNOME-macOS-Tahoe" ]; then
+    if git clone --depth=1 https://github.com/kayozxo/GNOME-macOS-Tahoe.git; then
+
+        cd GNOME-macOS-Tahoe
+
+        if [ -f install.sh ]; then
+
+            ./install.sh -l -d -la --flatpak || true
+
+            flatpak override --user --filesystem=xdg-config/gtk-3.0 || true
+            flatpak override --user --filesystem=xdg-config/gtk-4.0 || true
+        fi
+
+        cd "$WORK_DIR"
+    fi
+else
+    log_info "GNOME-macOS-Tahoe already cloned, skipping."
+fi
+
 
 # Icons
 log_info "Installing icon theme..."
