@@ -111,6 +111,9 @@ This script will:
 
 This software is provided AS-IS without warranty.
 
+During the firefox safari theme installation, firefox would be terminated.
+Please ensure that you have saved anything unsaved.
+
 Proceed only if you understand the risks.
 
 ========================================================
@@ -171,9 +174,7 @@ log_header "Creating Restore Point"
 if command -v timeshift &> /dev/null; then
     log_info "Creating Timeshift snapshot..."
 
-    sudo timeshift --create \
-        --comments "Before macOS theme install" \
-        --tags D || log_warn "Timeshift snapshot failed"
+    sudo timeshift --create --comments "Before macOS theme install"  --tags D || log_warn "Timeshift snapshot failed"
 else
     log_warn "Timeshift not installed yet. Snapshot skipped."
 fi
