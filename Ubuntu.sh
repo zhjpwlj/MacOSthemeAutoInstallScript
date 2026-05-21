@@ -501,7 +501,7 @@ if [ ! -d "GNOME-macOS-Tahoe" ]; then
 
         if [ -f install.sh ]; then
 
-            ./install.sh -l -d -la --flatpak || true
+            sudo ./install.sh -l -d -la --flatpak || true
 
             flatpak override --user --filesystem=xdg-config/gtk-3.0 || true
             flatpak override --user --filesystem=xdg-config/gtk-4.0 || true
