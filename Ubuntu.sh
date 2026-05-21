@@ -247,7 +247,7 @@ for cmd in curl jq unzip gnome-shell; do
     fi
 done
 
-GNOME_VERSION=$(gnome-shell --version | cut -d' ' -f3 | cut -d'.' -f1)
+GNOME_VERSION=$(gnome-shell --version | cut -d' ' -f3 | cut -d'.' -f1-2)
 
 log_success "GNOME version detected: ${GNOME_VERSION}"
 
@@ -261,7 +261,7 @@ EXTENSION_IDS=("5489" "1488" "19" "3210" "3740" "1460" "3193")
 
 API_URL="https://extensions.gnome.org/extension-query/?shell_version=${GNOME_VERSION}"
 
-log_info "Fetching extension data..."
+log_info "Fetching extension data from: $API_URL"
 
 CATALOG=$(curl -fsSL "$API_URL" || true)
 
@@ -272,6 +272,7 @@ fi
 
 if ! echo "$CATALOG" | jq empty >/dev/null 2>&1; then
     log_error "Invalid JSON received from GNOME Extensions API."
+    log_error "Response: $CATALOG"
     exit 1
 fi
 
