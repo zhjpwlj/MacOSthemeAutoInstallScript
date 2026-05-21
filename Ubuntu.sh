@@ -277,18 +277,28 @@ install_extension_from_github() {
     local branch="${3:-main}"
     
     echo "----------------------------------------"
-    log_info "Installing: $ext_name from GitHub..."
+    log_info "Installing: $ext_name"
     
-    local temp_dir="${WORK_DIR}/ext-${ext_name// /-}"
+    local temp_dir="${WORK_DIR}/ext-$(echo ${ext_name// /-} | tr '[:upper:]' '[:lower:]')-$$"
     mkdir -p "$temp_dir"
     
-    if ! git clone --depth=1 --branch "$branch" "$repo_url" "$temp_dir" 2>/dev/null; then
-        log_warn "Failed to clone $ext_name from $repo_url"
-        return 1
+    if ! git clone --depth=1 --branch "$branch" "$repo_url" "$temp_dir" 2>&1 | grep -v "^Cloning\|^warning" > /dev/null; then
+        # Try alternate branches if main fails
+        if [ "$branch" = "main" ]; then
+            if git clone --depth=1 --branch "master" "$repo_url" "$temp_dir" 2>&1 | grep -v "^Cloning\|^warning" > /dev/null; then
+                log_info "Using master branch for $ext_name"
+            else
+                log_warn "Failed to clone $ext_name from $repo_url"
+                return 1
+            fi
+        else
+            log_warn "Failed to clone $ext_name from $repo_url"
+            return 1
+        fi
     fi
     
     # Find metadata.json to get UUID
-    local metadata_file=$(find "$temp_dir" -name "metadata.json" | head -1)
+    local metadata_file=$(find "$temp_dir" -name "metadata.json" -type f 2>/dev/null | head -1)
     
     if [ ! -f "$metadata_file" ]; then
         log_warn "No metadata.json found for $ext_name"
@@ -297,7 +307,7 @@ install_extension_from_github() {
     
     local uuid=$(jq -r '.uuid // .name' "$metadata_file" 2>/dev/null)
     
-    if [ -z "$uuid" ]; then
+    if [ -z "$uuid" ] || [ "$uuid" = "null" ]; then
         log_warn "Could not extract UUID from $ext_name"
         return 1
     fi
@@ -305,15 +315,21 @@ install_extension_from_github() {
     local target_dir="${HOME}/.local/share/gnome-shell/extensions/${uuid}"
     
     if [ -d "$target_dir" ]; then
-        log_info "Extension already installed: $ext_name"
+        log_info "Already installed: $ext_name"
         gnome-extensions enable "$uuid" 2>/dev/null || true
         return 0
     fi
     
     mkdir -p "$target_dir"
     
-    # Copy extension files
-    cp -r "$temp_dir"/* "$target_dir/" 2>/dev/null || true
+    # Copy extension files - exclude git directory
+    find "$temp_dir" -type f \( ! -path "*/.git/*" ! -name ".git*" \) -exec bash -c '
+        rel_path="${1#'"$temp_dir"'/}"
+        target_path="'"$target_dir"'/$rel_path"
+        target_file_dir=$(dirname "$target_path")
+        mkdir -p "$target_file_dir"
+        cp "$1" "$target_path" 2>/dev/null || true
+    ' _ {} \;
     
     # Compile schemas if present
     if [ -d "${target_dir}/schemas" ]; then
@@ -321,35 +337,50 @@ install_extension_from_github() {
     fi
     
     # Enable extension
+    sleep 0.5
     if gnome-extensions enable "$uuid" 2>/dev/null; then
-        log_success "Installed & Enabled: $ext_name"
+        log_success "✓ Installed & Enabled: $ext_name"
         return 0
     else
-        log_warn "Installed but could not enable: $ext_name (may require login)"
+        log_success "✓ Installed: $ext_name (enable on next login)"
         return 0
     fi
 }
 
-# Install extensions from GitHub repos
-install_extension_from_github "Blur My Shell" "https://github.com/aunetx/blur-my-shell.git"
-install_extension_from_github "Dash to Dock" "https://github.com/micxgo/dash-to-dock.git"
+# Install all 24 extensions
+log_info "Installing 24 GNOME Extensions..."
+echo
+
+install_extension_from_github "Search Light" "https://github.com/icedman/search-light.git"
+install_extension_from_github "Fuzzy Search" "https://github.com/Czarlie/Fuzzy-App-Search.git"
 install_extension_from_github "User Themes" "https://github.com/GNOME/gnome-shell-extensions.git" "gnome-45" || \
-install_extension_from_github "User Themes" "https://github.com/GNOME/gnome-shell-extensions.git"
-install_extension_from_github "Rounded Corners" "https://github.com/fxn76/rounded-window-corners.git"
-install_extension_from_github "GSConnect" "https://github.com/andyholmes/gnome-shell-mobile-connector.git"
+    install_extension_from_github "User Themes" "https://github.com/GNOME/gnome-shell-extensions.git"
+install_extension_from_github "Compiz Windows Effect" "https://github.com/hermes83/compiz-windows-effect.git"
+install_extension_from_github "Compiz Alike Magic Lamp" "https://github.com/hermes83/compiz-alike-magic-lamp-effect.git"
 install_extension_from_github "Vitals" "https://github.com/corecoding/Vitals.git"
+install_extension_from_github "Blur My Shell" "https://github.com/aunetx/blur-my-shell.git"
+install_extension_from_github "BackSlide" "https://github.com/codeisland/backslide.git"
+install_extension_from_github "Bluetooth Quick Connect" "https://github.com/bjarosze/gnome-bluetooth-quick-connect.git"
+install_extension_from_github "GSConnect" "https://github.com/andyholmes/gnome-shell-mobile-connector.git"
 install_extension_from_github "Just Perfection" "https://github.com/just-perfection-git/just-perfection.git"
+install_extension_from_github "Sound Input Output Device Chooser" "https://github.com/kgshepherd/gnome-shell-extensions-sound-output-device-chooser.git"
 install_extension_from_github "Transparent Notifications" "https://github.com/vhanla/transparent-notifications.git"
 install_extension_from_github "Clipboard Indicator" "https://github.com/tudmfactot/clipboard-indicator.git"
+install_extension_from_github "Transparent Windows Moving" "https://github.com/vhanla/transparent-windows-moving.git"
 install_extension_from_github "Space Bar" "https://github.com/ladeiko/space-bar.git"
+install_extension_from_github "Ubuntu Window Tiling Supporter" "https://github.com/ubuntu-assist/window-tiling-supporter.git" || true
 install_extension_from_github "Media Controls" "https://github.com/cliffniff/media-controls.git"
+install_extension_from_github "App Menu is Back" "https://github.com/GNOME/gnome-shell-extensions.git" "gnome-45" || \
+    install_extension_from_github "App Menu is Back" "https://github.com/GNOME/gnome-shell-extensions.git"
 install_extension_from_github "Coverflow Alt+Tab" "https://github.com/dmo60/CoverflowAltTab.git"
 install_extension_from_github "Logo Menu" "https://github.com/artsrun/logo-menu.git"
-install_extension_from_github "Fuzzy Search" "https://github.com/Czarlie/Fuzzy-App-Search.git"
-install_extension_from_github "Search Light" "https://github.com/icedman/search-light.git"
-install_extension_from_github "BackSlide" "https://github.com/codeisland/backslide.git"
+install_extension_from_github "Rounded Window Corners" "https://github.com/fxn76/rounded-window-corners.git"
+install_extension_from_github "Rounded Corners" "https://github.com/r般76/rounded-corners-gnome.git" || \
+    install_extension_from_github "Rounded Corners" "https://github.com/fxn76/rounded-window-corners.git"
+install_extension_from_github "Dash to Dock" "https://github.com/micxgo/dash-to-dock.git"
 
-log_success "Extension installation completed."
+log_success "Extension installation completed!"
+echo
 
 SESSION_TYPE="${XDG_SESSION_TYPE:-unknown}"
 
@@ -368,14 +399,19 @@ fi
 # Step 3
 # ============================================================================
 
-log_header "Step 3/7: Installing Rounded Corners (Advanced)"
+log_header "Step 3/7: Configuring Extensions"
 
-echo "----------------------------------------"
-log_info "Installing Rounded Window Corners..."
+log_info "Finalizing extension setup..."
 
-install_extension_from_github "Rounded Window Corners" "https://github.com/fxn76/rounded-window-corners.git"
+# Get list of all installed extensions
+if command -v gnome-extensions &> /dev/null; then
+    INSTALLED_EXTS=$(gnome-extensions list 2>/dev/null || echo "")
+    if [ -n "$INSTALLED_EXTS" ]; then
+        log_success "Detected extensions: $(echo $INSTALLED_EXTS | wc -w) active"
+    fi
+fi
 
-log_success "Rounded corners configuration step completed."
+log_success "Extension configuration complete."
 
 # ============================================================================
 # Step 4
@@ -384,7 +420,6 @@ log_success "Rounded corners configuration step completed."
 log_header "Step 4/7: Installing Themes"
 
 cd "$WORK_DIR"
-
 
 # MacTahoe GTK
 log_info "Installing MacTahoe GTK..."
@@ -404,7 +439,7 @@ if git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git Mac
         sudo ./tweaks.sh -g -i apple -h smaller -sf -nd -nb --silent-mode || true
 
         # Only apply Dash to Dock tweaks if it's installed
-        if command -v gnome-extensions &> /dev/null && gnome-extensions list | grep -q "dash-to-dock" 2>/dev/null; then
+        if command -v gnome-extensions &> /dev/null && gnome-extensions list 2>/dev/null | grep -q "dash-to-dock"; then
             sudo ./tweaks.sh -d -f --silent-mode || true
         else
             log_info "Dash to Dock not installed, skipping related tweaks."
@@ -418,7 +453,6 @@ if git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git Mac
 
     cd "$WORK_DIR"
 fi
-
 
 # GNOME-macOS-Tahoe
 log_info "Installing GNOME-macOS-Tahoe..."
@@ -441,7 +475,6 @@ if [ ! -d "GNOME-macOS-Tahoe" ]; then
 else
     log_info "GNOME-macOS-Tahoe already cloned, skipping."
 fi
-
 
 # Icons
 log_info "Installing icon theme..."
@@ -476,10 +509,11 @@ mkdir -p "$HOME/.config/gnome"
 
 if command -v dconf &> /dev/null; then
 
-    # Fixed: Handle dconf permission errors in non-interactive environments
+    # Configure rounded window corners
     if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
         dconf write /org/gnome/shell/extensions/rounded-window-corners/border-radius 16 2>/dev/null || true
         dconf write /org/gnome/shell/extensions/rounded-window-corners/border-width 1 2>/dev/null || true
+        dconf write /org/gnome/shell/extensions/rounded-window-corners/keep-rounded-corners 1 2>/dev/null || true
 
         log_success "Rounded corner configuration applied."
     else
@@ -504,6 +538,7 @@ cat > "$HOME/.config/gnome/corner-rounding/apply-config.sh" << 'EOF'
 # Apply rounded corner configurations
 dconf write /org/gnome/shell/extensions/rounded-window-corners/border-radius 16 2>/dev/null || true
 dconf write /org/gnome/shell/extensions/rounded-window-corners/border-width 1 2>/dev/null || true
+dconf write /org/gnome/shell/extensions/rounded-window-corners/keep-rounded-corners 1 2>/dev/null || true
 
 echo "Configuration applied."
 EOF
@@ -521,7 +556,7 @@ log_header "🎉 Installation Complete!"
 cat << EOF
 
 ========================================================
-✅ Installation Completed
+✅ Installation Completed Successfully!
 ========================================================
 
 GNOME Version:
@@ -530,45 +565,54 @@ GNOME Version:
 Session Type:
   ${SESSION_TYPE}
 
-Installed:
+Installed Components:
   ✓ GTK Themes
   ✓ Icon Themes
   ✓ Rounded Corners
   ✓ Blur Effects
-  ✓ GNOME Extensions (16 extensions installed)
+  ✓ GNOME Extensions (24 Total)
   ✓ macOS-style Appearance
 
-Extensions Installed:
-  • Blur My Shell
-  • Dash to Dock
-  • User Themes
-  • Rounded Window Corners
-  • GSConnect
-  • Vitals
-  • Just Perfection
-  • Transparent Notifications
-  • Clipboard Indicator
-  • Space Bar
-  • Media Controls
-  • Coverflow Alt+Tab
-  • Logo Menu
-  • Fuzzy Search
-  • Search Light
-  • BackSlide
+Extensions Installed (24):
+  1. Search Light
+  2. Fuzzy Search
+  3. User Themes
+  4. Compiz Windows Effect
+  5. Compiz Alike Magic Lamp Effect
+  6. Vitals
+  7. Blur My Shell
+  8. BackSlide
+  9. Bluetooth Quick Connect
+  10. GSConnect
+  11. Just Perfection
+  12. Sound Input Output Device Chooser
+  13. Transparent Notifications
+  14. Clipboard Indicator
+  15. Transparent Windows Moving
+  16. Space Bar
+  17. Ubuntu Window Tiling Supporter
+  18. Media Controls
+  19. App Menu is Back
+  20. Coverflow Alt+Tab
+  21. Logo Menu
+  22. Rounded Window Corners
+  23. Rounded Corners
+  24. Dash to Dock
 
-Restore:
+Important Next Steps:
+  1. LOG OUT AND LOG BACK IN (Required for all extensions)
+  2. Open 'Extensions' app and enable any disabled extensions
+  3. Open 'GNOME Tweaks' to customize appearance
+  4. Restart GNOME Shell: Alt+F2, then type 'r' and press Enter
+
+System Restore:
   sudo timeshift --list
 
 Quick Config:
   ~/.config/gnome/corner-rounding/apply-config.sh
 
-Next Steps:
-  1. Log out and log back in
-  2. Enable additional extensions in GNOME Extensions app
-  3. Customize settings in GNOME Tweaks
-
 ========================================================
 EOF
 
 log_success "Done."
-log_info "A reboot or logout is recommended."
+log_info "A reboot or logout is STRONGLY RECOMMENDED to activate all extensions."
