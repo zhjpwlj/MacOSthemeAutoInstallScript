@@ -1,4 +1,4 @@
-name: Run Shell Script Workflow
+name: Test sh script though github actions
 
 on:
   push:
@@ -13,8 +13,11 @@ jobs:
       - name: Checkout repository code
         uses: actions/checkout@v4
 
+      - name: install gnome
+        run: apt update && sudo apt install xorg ubuntu-desktop -y
+
       - name: Make script executable
-        run: chmod +x ./every-soft.sh
+        run: chmod +x ./Ubuntu.sh
 
       - name: Execute the shell script
-        run: ./every-soft.sh
+        run: ./Ubuntu.sh
