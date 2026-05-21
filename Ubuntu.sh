@@ -271,13 +271,30 @@ log_header "Step 2/7: Installing GNOME Extensions"
 
 # Use extension UUIDs instead of numeric IDs
 declare -A EXTENSIONS=(
-    ["Dash to Dock"]="dash-to-dock@micxgo.github.com"
-    ["Blur My Shell"]="blur-my-shell@aunetx"
-    ["GSConnect"]="gsconnect@andyholmes.github.io"
-    ["Application menu"]="application-menu@gnome-shell-extensions.gcampax.github.com"
-    ["Quick Settings Tweaker"]="quicksettingstweaker@hawk.github.com"
-    ["Aylur's Widgets"]="aylurs-widgets@aylur"
+    ["Search Light"]="search-light@icedman.github.io"
+    ["Fuzzy Search"]="fuzzy-app-search@Czarlie.gitlab.com"
     ["User Themes"]="user-theme@gnome-shell-extensions.gcampax.github.com"
+    ["Compiz Windows Effect"]="compiz-windows-effect@hermes83.github.com"
+    ["Compiz Alike Magic Lamp"]="compiz-alike-magic-lamp-effect@hermes83.github.com"
+    ["Vitals"]="Vitals@CoreCoding.github.io"
+    ["Blur My Shell"]="blur-my-shell@aunetx"
+    ["BackSlide"]="backslide@codeisland.org"
+    ["Bluetooth Quick Connect"]="bluetooth-quick-connect@bjarosze.gmail.com"
+    ["GSConnect"]="gsconnect@andyholmes.github.io"
+    ["Just Perfection"]="just-perfection-desktop@just-perfection.com"
+    ["Sound Input Output Device Chooser"]="sound-output-device-chooser@kgshepherd.github.com"
+    ["Transparent Notifications"]="transparent-notifications@vhanla.github.com"
+    ["Clipboard Indicator"]="clipboard-indicator@tudmfactot.com"
+    ["Transparent Windows Moving"]="transparent-windows-moving@vhanla.github.com"
+    ["Space Bar"]="space-bar@ladeiko.com"
+    ["Ubuntu Window Tiling Supporter"]="ubuntu-window-tiling-supporter@ubuntu.com"
+    ["Media Controls"]="mediacontrols@cliffniff.github.com"
+    ["App Menu is Back"]="app-menu-is-back@gnome-shell-extensions.gcampax.github.com"
+    ["Coverflow Alt+Tab"]="coverflowalttab@dmo60.de"
+    ["Logo Menu"]="logomenu@artsrun.com"
+    ["Rounded Window Corners"]="rounded-window-corners@fxn76.com"
+    ["Rounded Corners"]="rounded-corners@fxn"
+    ["Dash to Dock"]="dash-to-dock@micxgo.github.com"
 )
 
 GNOME_VERSION_FULL=$(gnome-shell --version | cut -d' ' -f3)
@@ -609,7 +626,7 @@ Installed:
   ✓ Icon Themes
   ✓ Rounded Corners
   ✓ Blur Effects
-  ✓ GNOME Extensions
+  ✓ GNOME Extensions (24 extensions)
   ✓ macOS-style Appearance
 
 Restore:
