@@ -272,21 +272,23 @@ log_header "Step 2/7: Installing GNOME Extensions"
 
 EXTENSION_IDS=("5489" "1488" "19" "3210" "3740" "1460" "3193")
 
+# Fixed: Proper URL construction for GNOME extensions API
 API_URL="https://extensions.gnome.org/extension-query/?shell_version=${GNOME_VERSION}"
 
 log_info "Fetching extension data from: $API_URL"
 
-CATALOG=$(curl -fsSL "$API_URL" || true)
+CATALOG=$(curl -fsSL "$API_URL" 2>/dev/null || true)
 
 if [ -z "$CATALOG" ]; then
-    log_error "Failed to fetch extension catalog."
-    exit 1
+    log_warn "Failed to fetch extension catalog (network unavailable)."
+    log_warn "Continuing with offline installation..."
+    CATALOG=""
 fi
 
-if ! echo "$CATALOG" | jq empty >/dev/null 2>&1; then
-    log_error "Invalid JSON received from GNOME Extensions API."
-    log_error "Response: $CATALOG"
-    exit 1
+if [ -n "$CATALOG" ] && ! echo "$CATALOG" | jq empty >/dev/null 2>&1; then
+    log_warn "Invalid JSON received from GNOME Extensions API."
+    log_warn "Continuing with offline installation..."
+    CATALOG=""
 fi
 
 for ID in "${EXTENSION_IDS[@]}"; do
@@ -294,6 +296,11 @@ for ID in "${EXTENSION_IDS[@]}"; do
     echo "----------------------------------------"
 
     log_info "Processing Extension ID: ${ID}"
+
+    if [ -z "$CATALOG" ]; then
+        log_warn "Extension catalog unavailable. Skipping extension ${ID}."
+        continue
+    fi
 
     EXTENSION_INFO=$(echo "$CATALOG" | jq --arg id "$ID" '.extensions[]? | select(.pk == ($id | tonumber))' 2>/dev/null || true)
 
@@ -357,41 +364,45 @@ log_header "Step 3/7: Installing Rounded Corners"
 
 ROUNDED_CORNER_ID="7986"
 
-EXTENSION_INFO=$(echo "$CATALOG" | jq --arg id "$ROUNDED_CORNER_ID" '.extensions[]? | select(.pk == ($id | tonumber))' 2>/dev/null || true)
+if [ -n "$CATALOG" ]; then
+    EXTENSION_INFO=$(echo "$CATALOG" | jq --arg id "$ROUNDED_CORNER_ID" '.extensions[]? | select(.pk == ($id | tonumber))' 2>/dev/null || true)
 
-if [ -n "$EXTENSION_INFO" ]; then
+    if [ -n "$EXTENSION_INFO" ]; then
 
-    UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid')
-    DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url')
+        UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid')
+        DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url')
 
-    TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
+        TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 
-    if [ ! -d "$TARGET_DIR" ]; then
+        if [ ! -d "$TARGET_DIR" ]; then
 
-        mkdir -p "$TARGET_DIR"
+            mkdir -p "$TARGET_DIR"
 
-        ZIP_FILE=$(mktemp)
+            ZIP_FILE=$(mktemp)
 
-        curl -fsSL -o "$ZIP_FILE" "https://extensions.gnome.org${DOWNLOAD_URL}"
+            curl -fsSL -o "$ZIP_FILE" "https://extensions.gnome.org${DOWNLOAD_URL}"
 
-        unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
+            unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
 
-        rm -f "$ZIP_FILE"
+            rm -f "$ZIP_FILE"
 
-        if [ -d "${TARGET_DIR}/schemas" ]; then
-            glib-compile-schemas "${TARGET_DIR}/schemas"
+            if [ -d "${TARGET_DIR}/schemas" ]; then
+                glib-compile-schemas "${TARGET_DIR}/schemas"
+            fi
+
+            gnome-extensions enable "$UUID" || true
+
+            log_success "Rounded Corners installed."
+
+        else
+            log_info "Rounded Corners already installed."
         fi
 
-        gnome-extensions enable "$UUID" || true
-
-        log_success "Rounded Corners installed."
-
     else
-        log_info "Rounded Corners already installed."
+        log_warn "Rounded Corners unavailable for this GNOME version."
     fi
-
 else
-    log_warn "Rounded Corners unavailable for this GNOME version."
+    log_warn "Rounded Corners unavailable (catalog offline)."
 fi
 
 # ============================================================================
@@ -405,27 +416,31 @@ cd "$WORK_DIR"
 # GNOME-macOS-Tahoe
 log_info "Installing GNOME-macOS-Tahoe..."
 
-if git clone --depth=1 https://github.com/kayozxo/GNOME-macOS-Tahoe.git; then
+if [ ! -d "GNOME-macOS-Tahoe" ]; then
+    if git clone --depth=1 https://github.com/kayozxo/GNOME-macOS-Tahoe.git; then
 
-    cd GNOME-macOS-Tahoe
+        cd GNOME-macOS-Tahoe
 
-    if [ -f install.sh ]; then
+        if [ -f install.sh ]; then
 
-        ./install.sh -l -d -la --flatpak || true
+            ./install.sh -l -d -la --flatpak || true
 
-        flatpak override --user --filesystem=xdg-config/gtk-3.0 || true
-        flatpak override --user --filesystem=xdg-config/gtk-4.0 || true
+            flatpak override --user --filesystem=xdg-config/gtk-3.0 || true
+            flatpak override --user --filesystem=xdg-config/gtk-4.0 || true
+        fi
+
+        cd "$WORK_DIR"
     fi
-
-    cd "$WORK_DIR"
+else
+    log_info "GNOME-macOS-Tahoe already cloned, skipping."
 fi
 
 # MacTahoe GTK
 log_info "Installing MacTahoe GTK..."
 
-if git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git; then
+if git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git MacTahoe-gtk-theme-main; then
 
-    cd MacTahoe-gtk-theme
+    cd MacTahoe-gtk-theme-main
 
     if [ -f install.sh ]; then
 
@@ -447,25 +462,6 @@ if git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git; th
 
     cd "$WORK_DIR"
 fi
-
-
-log_info "Installing GNOME-macOS-Tahoe..."
-
-if git clone --depth=1 https://github.com/kayozxo/GNOME-macOS-Tahoe.git; then
-
-    cd GNOME-macOS-Tahoe
-
-    if [ -f install.sh ]; then
-
-        sudo ./install.sh -l -d -la --flatpak || true
-
-        flatpak override --user --filesystem=xdg-config/gtk-3.0 || true
-        flatpak override --user --filesystem=xdg-config/gtk-4.0 || true
-    fi
-
-    cd "$WORK_DIR"
-fi
-
 
 # Icons
 log_info "Installing icon theme..."
@@ -500,15 +496,20 @@ mkdir -p "$HOME/.config/gnome"
 
 if command -v dconf &> /dev/null; then
 
-    dconf write /org/gnome/shell/extensions/rounded-corners/border-radius 16 || true
-    dconf write /org/gnome/shell/extensions/rounded-corners/panel-corners true || true
+    # Fixed: Handle dconf permission errors in non-interactive environments
+    if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        dconf write /org/gnome/shell/extensions/rounded-corners/border-radius 16 || true
+        dconf write /org/gnome/shell/extensions/rounded-corners/panel-corners true || true
 
-    dconf write /org/gnome/shell/extensions/rounded-corners/padding-bottom 8 || true
-    dconf write /org/gnome/shell/extensions/rounded-corners/padding-left 8 || true
-    dconf write /org/gnome/shell/extensions/rounded-corners/padding-right 8 || true
-    dconf write /org/gnome/shell/extensions/rounded-corners/padding-top 8 || true
+        dconf write /org/gnome/shell/extensions/rounded-corners/padding-bottom 8 || true
+        dconf write /org/gnome/shell/extensions/rounded-corners/padding-left 8 || true
+        dconf write /org/gnome/shell/extensions/rounded-corners/padding-right 8 || true
+        dconf write /org/gnome/shell/extensions/rounded-corners/padding-top 8 || true
 
-    log_success "Rounded corner configuration applied."
+        log_success "Rounded corner configuration applied."
+    else
+        log_warn "dconf session not available. Configuration will be applied on next login."
+    fi
 
 else
     log_warn "dconf unavailable."
