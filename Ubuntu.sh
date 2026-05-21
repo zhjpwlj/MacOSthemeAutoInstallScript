@@ -90,7 +90,6 @@ trap cleanup EXIT
 # ============================================================================
 # Agreement Screen
 # ============================================================================
-#!/bin/bash
 
 # 引数に -y が含まれているかチェック
 SKIP_AGREE=false
@@ -309,8 +308,14 @@ for ID in "${EXTENSION_IDS[@]}"; do
         continue
     fi
 
-    UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid')
-    DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url')
+    UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid // empty')
+    DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url // empty')
+
+    # Validate that we have valid data
+    if [ -z "$UUID" ] || [ -z "$DOWNLOAD_URL" ] || [ "$UUID" = "null" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+        log_warn "Extension ID ${ID} returned invalid metadata."
+        continue
+    fi
 
     TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 
@@ -325,24 +330,39 @@ for ID in "${EXTENSION_IDS[@]}"; do
 
     ZIP_FILE=$(mktemp)
 
-    if curl -fsSL -o "$ZIP_FILE" "https://extensions.gnome.org${DOWNLOAD_URL}"; then
+    # Ensure DOWNLOAD_URL doesn't start with http (it shouldn't from the API)
+    if [[ "$DOWNLOAD_URL" == http* ]]; then
+        FULL_DOWNLOAD_URL="$DOWNLOAD_URL"
+    else
+        FULL_DOWNLOAD_URL="https://extensions.gnome.org${DOWNLOAD_URL}"
+    fi
 
-        unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
+    log_info "Downloading from: $FULL_DOWNLOAD_URL"
 
-        rm -f "$ZIP_FILE"
+    if curl -fsSL -o "$ZIP_FILE" "$FULL_DOWNLOAD_URL" 2>/dev/null; then
 
-        if [ -d "${TARGET_DIR}/schemas" ]; then
-            glib-compile-schemas "${TARGET_DIR}/schemas"
-        fi
+        if unzip -t "$ZIP_FILE" >/dev/null 2>&1; then
+            unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
 
-        if gnome-extensions enable "$UUID"; then
-            log_success "Enabled extension: ${UUID}"
+            rm -f "$ZIP_FILE"
+
+            if [ -d "${TARGET_DIR}/schemas" ]; then
+                glib-compile-schemas "${TARGET_DIR}/schemas"
+            fi
+
+            if gnome-extensions enable "$UUID"; then
+                log_success "Enabled extension: ${UUID}"
+            else
+                log_warn "Installed but failed to enable: ${UUID}"
+            fi
         else
-            log_warn "Installed but failed to enable: ${UUID}"
+            log_warn "Downloaded file is not a valid ZIP for extension ${ID}"
+            rm -f "$ZIP_FILE"
         fi
 
     else
-        log_warn "Download failed for extension ${ID}"
+        log_warn "Download failed for extension ${ID} (network error)"
+        rm -f "$ZIP_FILE"
     fi
 done
 
@@ -352,6 +372,9 @@ if [[ "$SESSION_TYPE" == "wayland" ]]; then
     log_warn "Wayland detected."
     log_warn "Alt+F2 -> r does NOT work on Wayland."
     log_info "Please log out and back in after installation."
+elif [[ "$SESSION_TYPE" == "unknown" ]]; then
+    log_warn "Session type could not be detected (non-interactive environment)."
+    log_info "Please restart GNOME Shell after installation."
 else
     log_info "You can restart GNOME Shell using Alt+F2 -> r"
 fi
@@ -369,33 +392,53 @@ if [ -n "$CATALOG" ]; then
 
     if [ -n "$EXTENSION_INFO" ]; then
 
-        UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid')
-        DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url')
+        UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid // empty')
+        DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url // empty')
 
-        TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
-
-        if [ ! -d "$TARGET_DIR" ]; then
-
-            mkdir -p "$TARGET_DIR"
-
-            ZIP_FILE=$(mktemp)
-
-            curl -fsSL -o "$ZIP_FILE" "https://extensions.gnome.org${DOWNLOAD_URL}"
-
-            unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
-
-            rm -f "$ZIP_FILE"
-
-            if [ -d "${TARGET_DIR}/schemas" ]; then
-                glib-compile-schemas "${TARGET_DIR}/schemas"
-            fi
-
-            gnome-extensions enable "$UUID" || true
-
-            log_success "Rounded Corners installed."
-
+        # Validate metadata
+        if [ -z "$UUID" ] || [ -z "$DOWNLOAD_URL" ] || [ "$UUID" = "null" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+            log_warn "Rounded Corners returned invalid metadata."
         else
-            log_info "Rounded Corners already installed."
+            TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
+
+            if [ ! -d "$TARGET_DIR" ]; then
+
+                mkdir -p "$TARGET_DIR"
+
+                ZIP_FILE=$(mktemp)
+
+                if [[ "$DOWNLOAD_URL" == http* ]]; then
+                    FULL_DOWNLOAD_URL="$DOWNLOAD_URL"
+                else
+                    FULL_DOWNLOAD_URL="https://extensions.gnome.org${DOWNLOAD_URL}"
+                fi
+
+                if curl -fsSL -o "$ZIP_FILE" "$FULL_DOWNLOAD_URL" 2>/dev/null; then
+
+                    if unzip -t "$ZIP_FILE" >/dev/null 2>&1; then
+                        unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
+
+                        rm -f "$ZIP_FILE"
+
+                        if [ -d "${TARGET_DIR}/schemas" ]; then
+                            glib-compile-schemas "${TARGET_DIR}/schemas"
+                        fi
+
+                        gnome-extensions enable "$UUID" || true
+
+                        log_success "Rounded Corners installed."
+                    else
+                        log_warn "Downloaded Rounded Corners file is not a valid ZIP."
+                        rm -f "$ZIP_FILE"
+                    fi
+                else
+                    log_warn "Failed to download Rounded Corners (network error)"
+                    rm -f "$ZIP_FILE"
+                fi
+
+            else
+                log_info "Rounded Corners already installed."
+            fi
         fi
 
     else
@@ -431,7 +474,12 @@ if git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git Mac
 
         sudo ./tweaks.sh -g -i apple -h smaller -sf -nd -nb --silent-mode || true
 
-        sudo ./tweaks.sh -d -f --silent-mode || true
+        # Only apply Dash to Dock tweaks if it's installed
+        if command -v gnome-extensions &> /dev/null && gnome-extensions list | grep -q "dash-to-dock"; then
+            sudo ./tweaks.sh -d -f --silent-mode || true
+        else
+            log_info "Dash to Dock not installed, skipping related tweaks."
+        fi
 
         flatpak override --user --filesystem=xdg-config/gtk-3.0 || true
         flatpak override --user --filesystem=xdg-config/gtk-4.0 || true
