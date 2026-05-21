@@ -282,20 +282,21 @@ install_extension_from_github() {
     local temp_dir="${WORK_DIR}/ext-$(echo ${ext_name// /-} | tr '[:upper:]' '[:lower:]')-$$"
     mkdir -p "$temp_dir"
     
-    if ! git clone --depth=1 --branch "$branch" "$repo_url" "$temp_dir" 2>&1 | grep -v "^Cloning\|^warning" > /dev/null; then
+    # Try cloning with the specified branch first
+    local clone_output
+    clone_output=$(git clone --depth=1 --branch "$branch" "$repo_url" "$temp_dir" 2>&1) || {
         # Try alternate branches if main fails
         if [ "$branch" = "main" ]; then
-            if git clone --depth=1 --branch "master" "$repo_url" "$temp_dir" 2>&1 | grep -v "^Cloning\|^warning" > /dev/null; then
-                log_info "Using master branch for $ext_name"
-            else
+            clone_output=$(git clone --depth=1 --branch "master" "$repo_url" "$temp_dir" 2>&1) || {
                 log_warn "Failed to clone $ext_name from $repo_url"
                 return 1
-            fi
+            }
+            log_info "Using master branch for $ext_name"
         else
             log_warn "Failed to clone $ext_name from $repo_url"
             return 1
         fi
-    fi
+    }
     
     # Find metadata.json to get UUID
     local metadata_file=$(find "$temp_dir" -name "metadata.json" -type f 2>/dev/null | head -1)
