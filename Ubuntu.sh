@@ -448,6 +448,25 @@ if git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git; th
     cd "$WORK_DIR"
 fi
 
+
+log_info "Installing GNOME-macOS-Tahoe..."
+
+if git clone --depth=1 https://github.com/kayozxo/GNOME-macOS-Tahoe.git; then
+
+    cd GNOME-macOS-Tahoe
+
+    if [ -f install.sh ]; then
+
+        sudo ./install.sh -l -d -la --flatpak || true
+
+        flatpak override --user --filesystem=xdg-config/gtk-3.0 || true
+        flatpak override --user --filesystem=xdg-config/gtk-4.0 || true
+    fi
+
+    cd "$WORK_DIR"
+fi
+
+
 # Icons
 log_info "Installing icon theme..."
 
