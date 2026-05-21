@@ -20,4 +20,4 @@ jobs:
         run: chmod +x ./Ubuntu.sh
 
       - name: Execute the shell script
-        run: ./Ubuntu.sh
+        run: ./Ubuntu.sh -y
