@@ -1,0 +1,27 @@
+name: Test sh script through github actions
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  execute-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Install GNOME and Virtual Display
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt update
+          sudo apt install -y xorg ubuntu-desktop xvfb
+
+      - name: Make script executable
+        run: chmod +x ./Every-soft.sh
+
+      - name: Execute the shell script with Virtual Display
+        run: |
+          xvfb-run --server-args="-screen 0 1024x768x24" ./Every-soft.sh
