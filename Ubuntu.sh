@@ -269,99 +269,101 @@ log_success "GNOME version detected: ${GNOME_VERSION}"
 
 log_header "Step 2/7: Installing GNOME Extensions"
 
-EXTENSION_IDS=("5489" "1488" "19" "3210" "3740" "1460" "3193")
+# Use extension UUIDs instead of numeric IDs
+declare -A EXTENSIONS=(
+    ["Dash to Dock"]="dash-to-dock@micxgo.github.com"
+    ["Blur My Shell"]="blur-my-shell@aunetx"
+    ["GSConnect"]="gsconnect@andyholmes.github.io"
+    ["Application menu"]="application-menu@gnome-shell-extensions.gcampax.github.com"
+    ["Quick Settings Tweaker"]="quicksettingstweaker@hawk.github.com"
+    ["Aylur's Widgets"]="aylurs-widgets@aylur"
+    ["User Themes"]="user-theme@gnome-shell-extensions.gcampax.github.com"
+)
 
-# Fixed: Proper URL construction for GNOME extensions API
-API_URL="https://extensions.gnome.org/extension-query/?shell_version=${GNOME_VERSION}"
+GNOME_VERSION_FULL=$(gnome-shell --version | cut -d' ' -f3)
 
-log_info "Fetching extension data from: $API_URL"
+# Function to fetch extension info by UUID
+fetch_extension_info() {
+    local uuid="$1"
+    local version="$2"
+    
+    # Use search API with proper parameters
+    local search_url="https://extensions.gnome.org/extension-query/?search=${uuid}&shell_version=${version}"
+    
+    log_info "Querying: $search_url"
+    
+    local response=$(curl -fsSL "$search_url" 2>/dev/null || echo "")
+    
+    if [ -z "$response" ]; then
+        return 1
+    fi
+    
+    # Try to find the extension by UUID in the response
+    echo "$response" | jq --arg uuid "$uuid" '.extensions[] | select(.uuid == $uuid)' 2>/dev/null || echo ""
+}
 
-CATALOG=$(curl -fsSL "$API_URL" 2>/dev/null || true)
-
-if [ -z "$CATALOG" ]; then
-    log_warn "Failed to fetch extension catalog (network unavailable)."
-    log_warn "Continuing with offline installation..."
-    CATALOG=""
-fi
-
-if [ -n "$CATALOG" ] && ! echo "$CATALOG" | jq empty >/dev/null 2>&1; then
-    log_warn "Invalid JSON received from GNOME Extensions API."
-    log_warn "Continuing with offline installation..."
-    CATALOG=""
-fi
-
-for ID in "${EXTENSION_IDS[@]}"; do
-
+# Install extensions by UUID
+for name in "${!EXTENSIONS[@]}"; do
+    UUID="${EXTENSIONS[$name]}"
+    
     echo "----------------------------------------"
-
-    log_info "Processing Extension ID: ${ID}"
-
-    if [ -z "$CATALOG" ]; then
-        log_warn "Extension catalog unavailable. Skipping extension ${ID}."
-        continue
-    fi
-
-    EXTENSION_INFO=$(echo "$CATALOG" | jq --arg id "$ID" '.extensions[]? | select(.pk == ($id | tonumber))' 2>/dev/null || true)
-
+    log_info "Installing: $name (UUID: $UUID)"
+    
+    EXTENSION_INFO=$(fetch_extension_info "$UUID" "$GNOME_VERSION_FULL")
+    
     if [ -z "$EXTENSION_INFO" ]; then
-        log_warn "Extension ID ${ID} unavailable or incompatible."
+        log_warn "Extension '$name' not found or incompatible with GNOME $GNOME_VERSION_FULL"
         continue
     fi
-
-    UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid // empty')
+    
     DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url // empty')
-
-    # Validate that we have valid data
-    if [ -z "$UUID" ] || [ -z "$DOWNLOAD_URL" ] || [ "$UUID" = "null" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-        log_warn "Extension ID ${ID} returned invalid metadata."
+    
+    if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+        log_warn "No download URL found for $name"
         continue
     fi
-
+    
     TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
-
+    
     if [ -d "$TARGET_DIR" ]; then
-        log_info "Extension already installed: ${UUID}"
-
+        log_info "Extension already installed: $name"
         gnome-extensions enable "$UUID" || true
         continue
     fi
-
+    
     mkdir -p "$TARGET_DIR"
-
+    
     ZIP_FILE=$(mktemp)
-
-    # Ensure DOWNLOAD_URL doesn't start with http (it shouldn't from the API)
+    
+    # Construct full download URL
     if [[ "$DOWNLOAD_URL" == http* ]]; then
         FULL_DOWNLOAD_URL="$DOWNLOAD_URL"
     else
         FULL_DOWNLOAD_URL="https://extensions.gnome.org${DOWNLOAD_URL}"
     fi
-
+    
     log_info "Downloading from: $FULL_DOWNLOAD_URL"
-
+    
     if curl -fsSL -o "$ZIP_FILE" "$FULL_DOWNLOAD_URL" 2>/dev/null; then
-
         if unzip -t "$ZIP_FILE" >/dev/null 2>&1; then
             unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
-
             rm -f "$ZIP_FILE"
-
+            
             if [ -d "${TARGET_DIR}/schemas" ]; then
-                glib-compile-schemas "${TARGET_DIR}/schemas"
+                glib-compile-schemas "${TARGET_DIR}/schemas" || true
             fi
-
+            
             if gnome-extensions enable "$UUID"; then
-                log_success "Enabled extension: ${UUID}"
+                log_success "Enabled: $name"
             else
-                log_warn "Installed but failed to enable: ${UUID}"
+                log_warn "Installed but failed to enable: $name"
             fi
         else
-            log_warn "Downloaded file is not a valid ZIP for extension ${ID}"
+            log_warn "Downloaded file is not a valid ZIP for $name"
             rm -f "$ZIP_FILE"
         fi
-
     else
-        log_warn "Download failed for extension ${ID} (network error)"
+        log_warn "Download failed for $name (network error)"
         rm -f "$ZIP_FILE"
     fi
 done
@@ -385,67 +387,59 @@ fi
 
 log_header "Step 3/7: Installing Rounded Corners"
 
-ROUNDED_CORNER_ID="7986"
+ROUNDED_CORNER_UUID="rounded-corners@fxn"
 
-if [ -n "$CATALOG" ]; then
-    EXTENSION_INFO=$(echo "$CATALOG" | jq --arg id "$ROUNDED_CORNER_ID" '.extensions[]? | select(.pk == ($id | tonumber))' 2>/dev/null || true)
+log_info "Installing Rounded Corners..."
 
-    if [ -n "$EXTENSION_INFO" ]; then
+EXTENSION_INFO=$(fetch_extension_info "$ROUNDED_CORNER_UUID" "$GNOME_VERSION_FULL")
 
-        UUID=$(echo "$EXTENSION_INFO" | jq -r '.uuid // empty')
-        DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url // empty')
-
-        # Validate metadata
-        if [ -z "$UUID" ] || [ -z "$DOWNLOAD_URL" ] || [ "$UUID" = "null" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-            log_warn "Rounded Corners returned invalid metadata."
-        else
-            TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
-
-            if [ ! -d "$TARGET_DIR" ]; then
-
-                mkdir -p "$TARGET_DIR"
-
-                ZIP_FILE=$(mktemp)
-
-                if [[ "$DOWNLOAD_URL" == http* ]]; then
-                    FULL_DOWNLOAD_URL="$DOWNLOAD_URL"
-                else
-                    FULL_DOWNLOAD_URL="https://extensions.gnome.org${DOWNLOAD_URL}"
-                fi
-
-                if curl -fsSL -o "$ZIP_FILE" "$FULL_DOWNLOAD_URL" 2>/dev/null; then
-
-                    if unzip -t "$ZIP_FILE" >/dev/null 2>&1; then
-                        unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
-
-                        rm -f "$ZIP_FILE"
-
-                        if [ -d "${TARGET_DIR}/schemas" ]; then
-                            glib-compile-schemas "${TARGET_DIR}/schemas"
-                        fi
-
-                        gnome-extensions enable "$UUID" || true
-
-                        log_success "Rounded Corners installed."
-                    else
-                        log_warn "Downloaded Rounded Corners file is not a valid ZIP."
-                        rm -f "$ZIP_FILE"
+if [ -n "$EXTENSION_INFO" ]; then
+    DOWNLOAD_URL=$(echo "$EXTENSION_INFO" | jq -r '.download_url // empty')
+    
+    if [ -n "$DOWNLOAD_URL" ] && [ "$DOWNLOAD_URL" != "null" ]; then
+        TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${ROUNDED_CORNER_UUID}"
+        
+        if [ ! -d "$TARGET_DIR" ]; then
+            mkdir -p "$TARGET_DIR"
+            
+            ZIP_FILE=$(mktemp)
+            
+            if [[ "$DOWNLOAD_URL" == http* ]]; then
+                FULL_DOWNLOAD_URL="$DOWNLOAD_URL"
+            else
+                FULL_DOWNLOAD_URL="https://extensions.gnome.org${DOWNLOAD_URL}"
+            fi
+            
+            log_info "Downloading Rounded Corners from: $FULL_DOWNLOAD_URL"
+            
+            if curl -fsSL -o "$ZIP_FILE" "$FULL_DOWNLOAD_URL" 2>/dev/null; then
+                if unzip -t "$ZIP_FILE" >/dev/null 2>&1; then
+                    unzip -oq "$ZIP_FILE" -d "$TARGET_DIR"
+                    rm -f "$ZIP_FILE"
+                    
+                    if [ -d "${TARGET_DIR}/schemas" ]; then
+                        glib-compile-schemas "${TARGET_DIR}/schemas" || true
                     fi
+                    
+                    gnome-extensions enable "$ROUNDED_CORNER_UUID" || true
+                    
+                    log_success "Rounded Corners installed."
                 else
-                    log_warn "Failed to download Rounded Corners (network error)"
+                    log_warn "Downloaded Rounded Corners file is not a valid ZIP."
                     rm -f "$ZIP_FILE"
                 fi
-
             else
-                log_info "Rounded Corners already installed."
+                log_warn "Failed to download Rounded Corners (network error)"
+                rm -f "$ZIP_FILE"
             fi
+        else
+            log_info "Rounded Corners already installed."
         fi
-
     else
-        log_warn "Rounded Corners unavailable for this GNOME version."
+        log_warn "No download URL found for Rounded Corners"
     fi
 else
-    log_warn "Rounded Corners unavailable (catalog offline)."
+    log_warn "Rounded Corners extension not found or incompatible."
 fi
 
 # ============================================================================
@@ -605,7 +599,7 @@ cat << EOF
 ========================================================
 
 GNOME Version:
-  ${GNOME_VERSION}
+  ${GNOME_VERSION_FULL}
 
 Session Type:
   ${SESSION_TYPE}
