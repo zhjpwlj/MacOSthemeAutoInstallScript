@@ -14,7 +14,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: install gnome
-        run: sudo apt update && sudo apt install xorg ubuntu-desktop -y
+        run: sudo apt install -y --no-install-recommends gnome-session gnome-shell gdm3 gnome-terminal nautilus firefox; elif [ -f /etc/fedora-release ]; then sudo dnf install -y @base-x gnome-shell gnome-terminal nautilus firefox; fi && sudo systemctl set-default graphical.target && echo "Done! Run 'sudo reboot' now."
+
 
       - name: Make script executable
         run: chmod +x ./Ubuntu.sh
