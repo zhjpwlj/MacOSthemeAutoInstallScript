@@ -12,7 +12,7 @@ create_temp_dir() {
 install_dependencies() {
   # Set up Charm repository for 'gum'
   sudo mkdir -p /etc/apt/keyrings
-  curl -fsSL https://charm.sh | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+  curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
   echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://charm.sh * *" | sudo tee /etc/apt/sources.list.d/charm.list
   sudo apt update
 
