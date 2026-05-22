@@ -19,8 +19,8 @@ jobs:
 
       - name: Install gnome-extensions-cli via pip globally
         run: |
-          # --break-system-packages を使ってシステムに直接インストールします。
-          # これによりパス問題が根本的に解決し、確実に「gext」コマンドが使えるようになります。
+          # システム標準のパス（/usr/local/bin）に直接 gext を配置します。
+          # これによりパスの設定を一切せずとも「gext」コマンドが確実に動くようになります。
           sudo pip3 install --break-system-packages gnome-extensions-cli
 
       - name: Execute script inside virtual desktop session
