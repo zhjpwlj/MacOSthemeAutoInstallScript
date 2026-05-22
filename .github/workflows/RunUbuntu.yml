@@ -16,22 +16,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends gnome-shell xvfb dbus-x11 pipx
 
-      - name: Find and inject gext PATH
+      # --- ステップ 1: パスを追加して、このステップを一度終了させる ---
+      - name: Configure Environment PATH
         run: |
-          # pipxのバイナリ保存先（PIPX_BIN_DIR）を自動取得して GitHub のパスに追加
-          PIPX_BIN=$(pipx environment | grep PIPX_BIN_DIR | cut -d'=' -f2)
-          echo "$PIPX_BIN" >> $GITHUB_PATH
+          echo "/opt/pipx/venvs/gnome-extensions-cli/bin" >> $GITHUB_PATH
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      # 完全にステップを分離してパスを反映
+      # --- ステップ 2: 新しいステップでスクリプトを実行（ここでパスが有効になる） ---
       - name: Execute script inside virtual desktop session
         run: |
           chmod +x ./ubuntu-human.sh
           
-          # パスが通っているかどこにあるかを確認（デバッグ用）
-          echo "=== Locate gext ==="
-          which gext || find / -name gext -type f 2>/dev/null | grep bin || true
+          echo "=== Testing gext version ==="
+          dbus-run-session -- xvfb-run --server-num=99 -s "-ac" gext --version
           
-          # スクリプトを実行
           echo "=== Running script ==="
           dbus-run-session -- xvfb-run --server-num=99 -s "-ac" ./ubuntu-human.sh
