@@ -14,18 +14,18 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-          # Install dependencies required for GNOME Shell, D-Bus, and Xvfb
           sudo apt-get install -y --no-install-recommends gnome-shell xvfb dbus-x11 pipx
 
       - name: Ensure gnome-extensions-cli is installed
         run: |
-          # Install gnome-extensions-cli (gext) via pipx and add it to PATH
-          pipx install gnome-extensions-cli
+          # 既存の pipx 環境があるため、確実にパスを通す設定のみ行う
+          echo "/opt/pipx/venvs/gnome-extensions-cli/bin" >> $GITHUB_PATH
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Execute script inside virtual desktop session
         run: |
           chmod +x ./ubuntu-human.sh
-          # CRITICAL FIX: Run xvfb-run INSIDE dbus-run-session
-          # This ensures that both the D-Bus session and the display (:99) are available to gext
-          dbus-run-session -- xvfb-run -a ./ubuntu-human.sh
+          
+          # 【重要】xvfb-run の引数に -s "-ac" を追加してアクセス制御を無効化
+          # ディスプレイ番号を確実に :99 に固定して実行します
+          dbus-run-session -- xvfb-run --server-num=99 -s "-ac" ./ubuntu-human.sh
