@@ -28,7 +28,6 @@ install_dependencies() {
     gnome-tweaks \
     timeshift \
     flatpak \
-    pipx \
     gum \
     git \
     sassc \
