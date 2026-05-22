@@ -9,23 +9,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install minimal GNOME components & Python pip
+      - name: Install minimal GNOME components & pipx
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-          # pipx の代わりに python3-pip をインストール
-          sudo apt-get install -y --no-install-recommends gnome-shell xvfb dbus-x11 python3-pip
+          # 安全に隔離インストールできる pipx を使用します
+          sudo apt-get install -y --no-install-recommends gnome-shell xvfb dbus-x11 pipx
 
-      - name: Install gnome-extensions-cli via pip globally
+      - name: Install gnome-extensions-cli via pipx
         run: |
-          # システム標準のパス（/usr/local/bin）に直接 gext を配置します。
-          # これによりパスの設定を一切せずとも「gext」コマンドが確実に動くようになります。
-          sudo pip3 install --break-system-packages gnome-extensions-cli
+          # システム環境を汚さずに gext をインストール
+          pipx install gnome-extensions-cli --force
 
       - name: Execute script inside virtual desktop session
         run: |
           chmod +x ./ubuntu-human.sh
+          
+          # 【重要】pipx が作成したバイナリの場所を直接環境変数の先頭に追加します
+          export PATH="$HOME/.local/bin:$PATH"
           
           echo "=== Testing gext version ==="
           dbus-run-session -- xvfb-run --server-num=99 -s "-ac" gext --version
