@@ -1,8 +1,6 @@
 name: Test sh script though github actions
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -18,7 +16,7 @@ jobs:
 
 
       - name: Make script executable
-        run: chmod +x ./Ubuntu.sh
+        run: chmod +x ./ubuntu-human.sh
 
       - name: Execute the shell script
-        run: ./Ubuntu.sh -y
+        run: ./ubuntu-human.sh
