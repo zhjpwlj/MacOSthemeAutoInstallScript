@@ -1,5 +1,8 @@
-name: Test sh script though github actions
-on: workflow_dispatch
+name: Test sh script through github actions
+
+on:
+  workflow_dispatch
+
 jobs:
   execute-script:
     runs-on: ubuntu-latest
@@ -11,10 +14,18 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gnome-shell xvfb dbus-x11
+          # Install dependencies required for GNOME Shell, D-Bus, and Xvfb
+          sudo apt-get install -y --no-install-recommends gnome-shell xvfb dbus-x11 pipx
+
+      - name: Ensure gnome-extensions-cli is installed
+        run: |
+          # Install gnome-extensions-cli (gext) via pipx and add it to PATH
+          pipx install gnome-extensions-cli
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Execute script inside virtual desktop session
         run: |
           chmod +x ./ubuntu-human.sh
-          # 仮想ディスプレイとD-Busセッションを起動してスクリプトを実行
-          xvfb-run -a dbus-run-session ./ubuntu-human.sh
+          # CRITICAL FIX: Run xvfb-run INSIDE dbus-run-session
+          # This ensures that both the D-Bus session and the display (:99) are available to gext
+          dbus-run-session -- xvfb-run -a ./ubuntu-human.sh
