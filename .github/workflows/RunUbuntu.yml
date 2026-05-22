@@ -1,22 +1,20 @@
 name: Test sh script though github actions
-
-on:
-  workflow_dispatch:
-
+on: workflow_dispatch
 jobs:
   execute-script:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: install gnome
-        run: if [ -f /etc/debian_version ]; then sudo apt update && sudo apt install -y --no-install-recommends gnome-session gnome-shell gdm3 gnome-terminal nautilus firefox; elif [ -f /etc/fedora-release ]; then sudo dnf install -y @base-x gnome-shell gnome-terminal nautilus firefox; fi && sudo systemctl set-default graphical.target && echo "Done! Run 'sudo reboot' now."
+      - name: Install minimal GNOME components
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnome-shell xvfb dbus-x11
 
-
-      - name: Make script executable
-        run: chmod +x ./ubuntu-human.sh
-
-      - name: Execute the shell script
-        run: ./ubuntu-human.sh
+      - name: Execute script inside virtual desktop session
+        run: |
+          chmod +x ./ubuntu-human.sh
+          # 仮想ディスプレイとD-Busセッションを起動してスクリプトを実行
+          xvfb-run -a dbus-run-session ./ubuntu-human.sh
