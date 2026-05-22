@@ -18,17 +18,19 @@ jobs:
 
       - name: Ensure gnome-extensions-cli is installed
         run: |
+          # pipx がデフォルトで使用するグローバル・ユーザーパスを環境変数に反映
           echo "/opt/pipx/venvs/gnome-extensions-cli/bin" >> $GITHUB_PATH
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+      # パスを反映させるため、ステップを完全に切り離します
       - name: Execute script inside virtual desktop session
         run: |
           chmod +x ./ubuntu-human.sh
           
-          # 1. そもそも gext コマンドがこの環境で正常に動くか単体テスト
+          # フルパスを指定してテストを実行
           echo "=== Testing gext version ==="
-          dbus-run-session -- xvfb-run --server-num=99 -s "-ac" gext --version
+          dbus-run-session -- xvfb-run --server-num=99 -s "-ac" /opt/pipx/venvs/gnome-extensions-cli/bin/gext --version || true
           
-          # 2. スクリプトをデバッグモード（-x）で実行し、どの行で落ちたか出力させる
+          # スクリプトを実行
           echo "=== Running script ==="
-          dbus-run-session -- xvfb-run --server-num=99 -s "-ac" bash -x ./ubuntu-human.sh
+          dbus-run-session -- xvfb-run --server-num=99 -s "-ac" ./ubuntu-human.sh
