@@ -9,20 +9,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install minimal GNOME components
+      - name: Install minimal GNOME components & Python pip
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gnome-shell xvfb dbus-x11 pipx
+          # pipx の代わりに python3-pip をインストール
+          sudo apt-get install -y --no-install-recommends gnome-shell xvfb dbus-x11 python3-pip
 
-      # --- ステップ 1: パスを追加して、このステップを一度終了させる ---
-      - name: Configure Environment PATH
+      - name: Install gnome-extensions-cli via pip globally
         run: |
-          echo "/opt/pipx/venvs/gnome-extensions-cli/bin" >> $GITHUB_PATH
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          # --break-system-packages を使い、システム全体(/usr/local/bin)に gext を配置
+          # これにより、パスの設定を一切せずとも「gext」コマンドが確実に使えるようになります
+          sudo pip3 install --break-system-packages gnome-extensions-cli
 
-      # --- ステップ 2: 新しいステップでスクリプトを実行（ここでパスが有効になる） ---
       - name: Execute script inside virtual desktop session
         run: |
           chmod +x ./ubuntu-human.sh
