@@ -88,15 +88,21 @@ install_macos_theme() {
 main() {
   echo "Installing dependencies and recommended packages..."
   install_dependencies
+
   pgrep firefox >/dev/null || firefox &
-  gum spin --spinner dot --title "Creating a temporary directory..." -- create_temp_dir
-  gum spin --spinner dot --title "Installing all Gnome Extensions required..." -- install_extensions
-  gum spin --spinner dot --title "Installing MacOS Tahoe Themes for Gnome..." -- install_macos_theme
   
-  # Cleanup temporary files
+  echo "Creating a temporary directory..."
+  create_temp_dir
+
+  echo "Installing all Gnome Extensions required..."
+  install_extensions
+
+  echo "Installing MacOS Tahoe Themes for Gnome..."
+  install_macos_theme
+  
+  # 一時ファイルの削除
   rm -rf "$TMP_DIR"
   echo "Setup completed successfully!"
-}
 
 # Execute the script
 main
