@@ -24,6 +24,7 @@ install_dependencies() {
     build-essential \
     procps \
     file \
+    pipx \
     gnome-shell \
     gnome-tweaks \
     timeshift \
@@ -99,9 +100,10 @@ main() {
   echo "Installing MacOS Tahoe Themes for Gnome..."
   install_macos_theme
   
-  # 一時ファイルの削除
+  # delete temp files
   rm -rf "$TMP_DIR"
   echo "Setup completed successfully!"
+}
 
 # Execute the script
 main
