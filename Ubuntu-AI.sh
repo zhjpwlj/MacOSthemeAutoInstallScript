@@ -352,33 +352,42 @@ install_extension_from_github() {
 log_info "Installing 24 GNOME Extensions..."
 echo
 
+# Core Extensions
 install_extension_from_github "Search Light" "https://github.com/icedman/search-light.git"
 install_extension_from_github "Fuzzy Search" "https://github.com/Czarlie/Fuzzy-App-Search.git"
 install_extension_from_github "User Themes" "https://github.com/GNOME/gnome-shell-extensions.git" "gnome-45" || \
     install_extension_from_github "User Themes" "https://github.com/GNOME/gnome-shell-extensions.git"
+
+# Visual Effects
 install_extension_from_github "Compiz Windows Effect" "https://github.com/hermes83/compiz-windows-effect.git"
 install_extension_from_github "Compiz Alike Magic Lamp" "https://github.com/hermes83/compiz-alike-magic-lamp-effect.git"
 install_extension_from_github "Vitals" "https://github.com/corecoding/Vitals.git"
 install_extension_from_github "Blur My Shell" "https://github.com/aunetx/blur-my-shell.git"
 install_extension_from_github "BackSlide" "https://github.com/codeisland/backslide.git"
+
+# Connectivity & Integration
 install_extension_from_github "Bluetooth Quick Connect" "https://github.com/bjarosze/gnome-bluetooth-quick-connect.git"
 install_extension_from_github "GSConnect" "https://github.com/andyholmes/gnome-shell-mobile-connector.git"
+
+# Customization & Tweaks
 install_extension_from_github "Just Perfection" "https://github.com/just-perfection-git/just-perfection.git"
 install_extension_from_github "Sound Input Output Device Chooser" "https://github.com/kgshepherd/gnome-shell-extensions-sound-output-device-chooser.git"
 install_extension_from_github "Transparent Notifications" "https://github.com/vhanla/transparent-notifications.git"
 install_extension_from_github "Clipboard Indicator" "https://github.com/tudmfactot/clipboard-indicator.git"
 install_extension_from_github "Transparent Windows Moving" "https://github.com/vhanla/transparent-windows-moving.git"
+
+# UI Enhancements
 install_extension_from_github "Space Bar" "https://github.com/ladeiko/space-bar.git"
-install_extension_from_github "Ubuntu Window Tiling Supporter" "https://github.com/ubuntu-assist/window-tiling-supporter.git" || true
 install_extension_from_github "Media Controls" "https://github.com/cliffniff/media-controls.git"
 install_extension_from_github "App Menu is Back" "https://github.com/GNOME/gnome-shell-extensions.git" "gnome-45" || \
     install_extension_from_github "App Menu is Back" "https://github.com/GNOME/gnome-shell-extensions.git"
 install_extension_from_github "Coverflow Alt+Tab" "https://github.com/dmo60/CoverflowAltTab.git"
 install_extension_from_github "Logo Menu" "https://github.com/artsrun/logo-menu.git"
+
+# Window Management & Styling
 install_extension_from_github "Rounded Window Corners" "https://github.com/fxn76/rounded-window-corners.git"
-install_extension_from_github "Rounded Corners" "https://github.com/r般76/rounded-corners-gnome.git" || \
-    install_extension_from_github "Rounded Corners" "https://github.com/fxn76/rounded-window-corners.git"
-install_extension_from_github "Dash to Dock" "https://github.com/micxgo/dash-to-dock.git"
+install_extension_from_github "Dash to Dock" "https://github.com/MicxDo/dash-to-dock.git" || \
+    install_extension_from_github "Dash to Dock" "https://github.com/micxgo/dash-to-dock.git"
 
 log_success "Extension installation completed!"
 echo
@@ -571,10 +580,10 @@ Installed Components:
   ✓ Icon Themes
   ✓ Rounded Corners
   ✓ Blur Effects
-  ✓ GNOME Extensions (24 Total)
+  ✓ GNOME Extensions (22 Total)
   ✓ macOS-style Appearance
 
-Extensions Installed (24):
+Extensions Installed (22):
   1. Search Light
   2. Fuzzy Search
   3. User Themes
@@ -591,14 +600,12 @@ Extensions Installed (24):
   14. Clipboard Indicator
   15. Transparent Windows Moving
   16. Space Bar
-  17. Ubuntu Window Tiling Supporter
-  18. Media Controls
-  19. App Menu is Back
-  20. Coverflow Alt+Tab
-  21. Logo Menu
-  22. Rounded Window Corners
-  23. Rounded Corners
-  24. Dash to Dock
+  17. Media Controls
+  18. App Menu is Back
+  19. Coverflow Alt+Tab
+  20. Logo Menu
+  21. Rounded Window Corners
+  22. Dash to Dock
 
 Important Next Steps:
   1. LOG OUT AND LOG BACK IN (Required for all extensions)
