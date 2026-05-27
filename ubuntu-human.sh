@@ -40,10 +40,10 @@ create_temp_dir() {
 install_dependencies() {
   sudo mkdir -p /etc/apt/keyrings
   if [ ! -f /etc/apt/keyrings/charm.gpg ]; then
-    curl -fsSL https://charm.sh | sudo gpg --dearmor --yes -o /etc/apt/keyrings/charm.gpg
+    curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/charm.gpg
   fi
   if [ ! -f /etc/apt/sources.list.d/charm.list ]; then
-    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://charm.sh * *" \
+    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg]  https://repo.charm.sh/apt/ * *" \
 
       | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
   fi
@@ -71,7 +71,7 @@ install_dependencies() {
     inkscape \
     dconf-cli \
     gnome-sushi
-  flatpak remote-add --if-not-exists flathub https://flathub.org
+  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
   pipx ensurepath
   pipx install gnome-extensions-cli \
     --system-site-packages \
@@ -122,7 +122,7 @@ install_extensions() {
 
 install_macos_gtk_theme() {
   # Clone and install GTK theme
-  git clone --depth=1 https://github.com
+  git clone --depth=1 https://github.com/vinceliuice/MacTahoe-gtk-theme.git
   cd "$TMP_DIR/MacTahoe-gtk-theme" || exit 1
   sudo ./install.sh -b -HD --shell -i apple -sf --round --silent-mode
   ./install.sh -l
@@ -135,7 +135,7 @@ install_macos_gtk_theme() {
 
 install_gnome_macos_tahoe_theme(){
   # Clone and install GNOME macOS Tahoe
-  git clone --depth=1 https://github.com
+  git clone --depth=1 https://github.com/kayozxo/GNOME-macOS-Tahoe.git
   cd "$TMP_DIR/GNOME-macOS-Tahoe" || exit 1
   sudo ./install.sh -l -d -la --flatpak
   cd "$TMP_DIR" || exit 1
@@ -143,7 +143,7 @@ install_gnome_macos_tahoe_theme(){
 
 install_icon_and_cursor_theme(){
   # Clone and install Icon theme
-  git clone --depth=1 https://github.com
+  git clone --depth=1 https://github.com/vinceliuice/MacTahoe-icon-theme.git
   cd "$TMP_DIR/MacTahoe-icon-theme" || exit 1
   ./install.sh -b
   cd "$TMP_DIR/MacTahoe-icon-theme/cursor" || exit 1
