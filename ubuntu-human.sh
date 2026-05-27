@@ -52,8 +52,7 @@ install_dependencies() {
     curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/charm.gpg
   fi
   if [ ! -f /etc/apt/sources.list.d/charm.list ]; then
-    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg]  https://repo.charm.sh/apt/ * *" | \
-      sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
+    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
   fi
   
   sudo apt update
@@ -195,11 +194,17 @@ cleanup() {
 
 main() {
   gum spin --title "[1/6] Installing dependencies..." -- install_dependencies
+  
   gum spin --title "[2/6] Creating temporary workspace..." -- create_temp_dir
+  
   gum spin --title "[3/6] Installing GNOME extensions..." -- install_extensions
+  
   gum spin --title "[4/6] Installing macOS GTK theme..." -- install_macos_gtk_theme
+  
   gum spin --title "[5/6] Installing GNOME macOS shell theme..." -- install_gnome_macos_tahoe_theme
+  
   gum spin --title "[6/6] Installing icon and cursor themes..." -- install_icon_and_cursor_theme
+  
   gum spin --title "Applying settings..." -- apply_settings
   
   echo ""
