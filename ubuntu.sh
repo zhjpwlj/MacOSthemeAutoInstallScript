@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Ensure the OS release file exists
 if [ ! -f /etc/os-release ]; then
