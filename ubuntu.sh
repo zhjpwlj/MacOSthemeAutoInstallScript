@@ -1,27 +1,47 @@
 #!/bin/bash
 
-check_dependencies() {
-    # ============================================================#
-    # DEPENDENCY CHECK (Put your required commands in this list)  #
-    # ============================================================#
-    REQUIRED_COMMANDS=("curl" "jq" "git" "docker")
-    MISSING_COUNTER=0
+# ============================================================#
+#                            TODO                             #
+# ============================================================#
 
-    echo "Checking script dependencies..."
-    for cmd in "${REQUIRED_COMMANDS[@]}"; do
-        if ! command -v "$cmd" &> /dev/null; then
-            echo "  [X] Missing required tool: $cmd"
-            ((MISSING_COUNTER++))
+
+install_required_softs() {
+    local REQUIRED_PACKAGES=(curl
+        jq
+        unzip
+        build-essential
+        procps
+        file
+        pipx
+        gnome-shell
+        gnome-tweaks
+        timeshift
+        flatpak
+        gum
+        git
+        sassc
+        libglib2.0-dev-bin
+        libxml2-utils
+        imagemagick
+        dialog
+        optipng
+        inkscape
+        dconf-cli
+        gnome-sushi
+        )
+
+    sudo apt -qq update
+    
+    for i in "${REQUIRED_PACKAGES[@]}"
+    do
+        # Check if the package is already installed via dpkg
+        if dpkg -l | grep -q "ii  $i "; then
+            echo "====> $i is already installed. Skipping."
         else
-            echo "  [✓] Found: $cmd"
+            echo "====> Installing $i..."
+            sudo apt -qq install -y "$i"
         fi
     done
-
-    if [ "$MISSING_COUNTER" -gt 0 ]; then
-        echo "ERROR: $MISSING_COUNTER required tool(s) are missing. Aborting."    
-        exit 1
-    fi
-    echo -e "All systems go!\n"
 }
 
 check_compatible() {
