@@ -42,6 +42,12 @@ install_required_softs() {
             sudo apt -qq install -y "$i"
         fi
     done
+
+    if command -v gext &> /dev/null; then
+        echo "gext is not found. Installing..."
+        pip3 install --upgrade gnome-extensions-cli
+        echo "gext is installed. Please restart the terminal."
+    fi
 }
 
 check_compatible() {
@@ -148,7 +154,40 @@ configure_firefox() {
 }
 
 install_gnome_extensions{
-    
+    extensions=(
+        5489
+        1488
+        19
+        3740
+        1460
+        3193
+        1319
+        3843
+        5848
+        779
+        5090
+        4422
+        3986
+        3888
+        22
+        4451
+        3951
+        3990
+        4245
+        5387
+      )
+      # Search light ,Fuzzy search ,User themes, Compiz alike magic lamp effect, Vitals, Blur my shell, Gsconnect, Just perfection, Notification banner position, Clipboard indicator, Space bar, Ubuntu tilting assistant, App menu is back, Fildem global menu, Coverflow alt+tab, Logo menu, Rounded corners, Dash2dock animated, Gesture improvements, Control center
+  
+      for ext in "${extensions[@]}"; do
+        echo "Installing extension $ext..."
+        gext install "$ext" || {
+          echo "Warning: Failed to install extension $ext"
+          continue
+        }
+        gext enable "$ext" || {
+          echo "Warning: Failed to enable extension $ext"
+        }
+      done
 }
 
 install_theme(){
