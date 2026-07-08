@@ -79,6 +79,9 @@ check_compatible() {
     fi
     
     echo "Environment verified: GNOME on Wayland. Proceeding..."
+}
+
+configure_firefox() {
 
     #================================================#
     #              Check Firefox Status              #
@@ -121,6 +124,7 @@ check_compatible() {
     declare -A FIREFOX_FLAGS=(
         ["layers.acceleration.force-enabled"]="true"
         ["toolkit.legacyUserProfileCustomizations.stylesheets"]="true"
+        ["browser.tabs.allowTabCloseOnMiddleClick"]="false"
     )
 
     for flag in "${!FIREFOX_FLAGS[@]}"; do
