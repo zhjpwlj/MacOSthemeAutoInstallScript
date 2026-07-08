@@ -3,7 +3,7 @@
 # ============================================================#
 #                            TODO                             #
 # ============================================================#
-
+#add extension insatllation
 
 install_required_softs() {
     local REQUIRED_PACKAGES=(curl
@@ -79,6 +79,11 @@ check_compatible() {
     fi
     
     echo "Environment verified: GNOME on Wayland. Proceeding..."
+
+    if ! curl --connect-timeout 3 -sI github.com &> /dev/null; then
+        echo "This script requires an active internet connection."
+        exit 1
+    fi
 }
 
 configure_firefox() {
@@ -142,5 +147,14 @@ configure_firefox() {
     
 }
 
+install_gnome_extensions{
+    
+}
 
-
+install_theme(){
+    git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1
+    cd MacTahoe-gtk-theme
+    sudo ./install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode
+    ./install.sh -l -o normal -b --shell -i apple -h smaller -sf --round --silent-mode
+    
+    
