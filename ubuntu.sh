@@ -115,27 +115,13 @@ check_compatible() {
         exit 1
     fi
 
-    echo "🔧 Configuring Firefox flags..."
-
-    # Backup prefs.js before modifications
-    BACKUP_FILE="${USER_PROFILE}/prefs.js.backup.$(date +%Y%m%d%H%M%S)"
-    cp "$USER_PROFILE/prefs.js" "$BACKUP_FILE"
-    echo "  📦 Backup created: $BACKUP_FILE"
+    echo "Configuring required Firefox flags..."
 
     # Define the flags you want to enable
     declare -A FIREFOX_FLAGS=(
-        ["browser.aboutwelcome.enabled"]="true"
-        ["browser.newtabpage.activity-stream.feeds.snippets"]="false"
-        ["browser.ping-centre.telemetry"]="false"
-        ["browser.toolbars.bookmarks.visibility"]="never"
-        ["privacy.resistFingerprinting"]="false"
-        ["gfx.webrender.all"]="true"
         ["layers.acceleration.force-enabled"]="true"
-        ["media.ffvpx.enabled"]="false"
-        ["reader.parse-on-load.force-enabled"]="true"
+        ["toolkit.legacyUserProfileCustomizations.stylesheets"]="true"
     )
-
-    echo "  ✏️  Applying ${#FIREFOX_FLAGS[@]} preference(s)..."
 
     for flag in "${!FIREFOX_FLAGS[@]}"; do
         value="${FIREFOX_FLAGS[$flag]}"
@@ -144,11 +130,9 @@ check_compatible() {
         if grep -q "^user_pref(\"$flag\"" "$USER_PROFILE/prefs.js"; then
             # Update existing flag
             sed -i "s/^user_pref(\"$flag\", .*);/user_pref(\"$flag\", $value);/" "$USER_PROFILE/prefs.js"
-            echo "    ✓ Updated: $flag = $value"
         else
             # Append new flag
             echo "user_pref(\"$flag\", $value);" >> "$USER_PROFILE/prefs.js"
-            echo "    ➕ Added: $flag = $value"
         fi
     done
     
