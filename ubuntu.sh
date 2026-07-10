@@ -141,7 +141,7 @@ configure_firefox() {
         echo "Firefox is found. preceeding..."
     else
         echo "Firefox is not installed."
-        return 0
+        exit 1
     fi
 
     PROFILE_DIR="$HOME/snap/firefox/common/.mozilla/firefox"
