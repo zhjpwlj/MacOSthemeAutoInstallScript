@@ -8,16 +8,16 @@ set -euo pipefail
 # Save the original working directory
 ORIGINAL_DIR="$(pwd)"
 
+# Log file
+LOGFILE="$HOME/.MacOSthemeAutoInstallScript.log"
+# Append all stdout/stderr to the logfile while also showing it on the console
+exec > >(tee -a "$LOGFILE") 2>&1
+
 # Trap to restore working directory and cleanup on exit
 trap 'cd "$ORIGINAL_DIR" 2>/dev/null || true; rm -rf "${TMP:-}" 2>/dev/null || true' EXIT
 
-# Wrapper for checking if previous function succeeded
-check_previous_command() {
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Previous command failed!" >&2
-        exit 1
-    fi
-}
+# NOTE: check_previous_command() was removed because set -euo pipefail already enforces
+# immediate exit on failure; the helper was defined but unused.
 
 # ============================================================#
 #                            TODO                             #
@@ -66,7 +66,6 @@ check_compatible() {
 
     #make a temp dir
     TMP=$(mktemp -d)
-    trap 'cd "$ORIGINAL_DIR" 2>/dev/null || true; rm -rf "$TMP" 2>/dev/null || true' EXIT
     cd "$TMP"
 
 }
@@ -121,11 +120,15 @@ install_required_softs() {
     done
 
     pipx ensurepath
-    source ~/.bashrc
+    # Do not source ~/.bashrc in scripts (may not be appropriate in non-interactive shells)
     export PATH="$PATH:$HOME/.local/bin"
 
-    sudo pip install future fuzzysearch --break-system-packages
-    
+    # Avoid installing python libraries system-wide. Install as user packages to avoid --break-system-packages.
+    echo "Installing python libraries (user site) for components that require them..."
+    python3 -m pip install --user future fuzzysearch || {
+        echo "ERROR: Failed to install python packages (future, fuzzysearch) into user site-packages" >&2
+        exit 1
+    }
 
     if ! command -v gext &> /dev/null; then
         echo "gext not found. Installing..."
@@ -142,6 +145,9 @@ install_required_softs() {
             exit 1
         fi
     fi
+
+    # Informational suggestion about Timeshift
+    echo "NOTE: Timeshift is installed. It's recommended to create a snapshot before making system changes (manually run 'sudo timeshift --create')."
 }
 
 configure_firefox() {
@@ -215,6 +221,25 @@ configure_firefox() {
 }
 
 install_gnome_extensions(){
+    # Map of extension id => human-friendly name for maintainability
+    # 1488: Fuzzy search
+    # 19: User themes
+    # 3740: Compiz alike magic lamp effect
+    # 3193: Blur my shell
+    # 3843: Just Perfection
+    # 4105: Notification banner position
+    # 779: Clipboard indicator
+    # 5090: Space Bar
+    # 4158: GNOME 4x/5x improvement
+    # 3733: Ubuntu tiling helper
+    # 6433: (name omitted)
+    # 4114: (name omitted)
+    # 97: (name omitted)
+    # 2524: (name omitted)
+    # 4994: (name omitted)
+    # 4245: (name omitted)
+    # 8267: (name omitted)
+
     extensions=(
         1488
         19
@@ -234,7 +259,7 @@ install_gnome_extensions(){
         4245
         8267
       )
-        #Fuzzy search, User themes, Compiz alike magic lamp effect, Blur my shell, Just perfection, Notification banner position, Clipboard indicator, Space bar, gnome 4x 5x improvement, Ubuntu tilting assistant, App menu is back, Fildem global menu, Coverflow alt+tab, Rounded corners, Dash2dock animated, Gesture improvements, Kiwi is not apple
+        #Fuzzy search, User themes, Compiz alike magic lamp effect, Blur my shell, Just perfection, Notification banner position, Clipboard indicator, Space bar, gnome 4x 5x improvement, Ubuntu t[...]
   
       for ext in "${extensions[@]}"; do
         echo "Installing extension $ext..."
@@ -249,86 +274,61 @@ install_gnome_extensions(){
 }
 
 install_theme(){
-    # Save current directory and use subshell to prevent directory pollution
+    # Save current directory
     local theme_work_dir
     theme_work_dir="$TMP/theme_install_$$"
     mkdir -p "$theme_work_dir"
-    
-    (
-        cd "$theme_work_dir" || exit 1
-        
-        git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1 || {
-            echo "ERROR: Failed to clone MacTahoe-gtk-theme" >&2
-            exit 1
-        }
-        cd MacTahoe-gtk-theme || exit 1
-        sudo ./install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode || {
-            echo "ERROR: Failed to install MacTahoe-gtk-theme" >&2
-            exit 1
-        }
-        ./install.sh -l -o normal -b --shell -i apple -h smaller -sf --round || {
-            echo "ERROR: Failed to configure MacTahoe-gtk-theme for user" >&2
-            exit 1
-        }
-        ./tweaks.sh -g -sf -nd -nb || {
-            echo "ERROR: Failed to apply tweaks (step 1)" >&2
-            exit 1
-        }
-        ./tweaks.sh -f || {
-            echo "ERROR: Failed to apply tweaks (step 2)" >&2
-            exit 1
-        }
-        ./tweaks.sh -f adaptive || {
-            echo "ERROR: Failed to apply tweaks (step 3)" >&2
-            exit 1
-        }
-        ./tweaks.sh -F -c Dark || {
-            echo "ERROR: Failed to apply tweaks (step 4)" >&2
-            exit 1
-        }
-        cd ..
 
-        git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git --depth=1 || {
-            echo "ERROR: Failed to clone MacTahoe-icon-theme" >&2
-            exit 1
-        }
-        cd MacTahoe-icon-theme || exit 1
-        ./install.sh -b || {
-            echo "ERROR: Failed to install MacTahoe-icon-theme" >&2
-            exit 1
-        }
+    cd "$theme_work_dir" || { echo "ERROR: Failed to enter theme work dir $theme_work_dir" >&2; exit 1; }
 
-        cd cursors || exit 1
-        sudo ./install.sh || {
-            echo "ERROR: Failed to install cursors" >&2
-            exit 1
-        }
+    git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1 || { echo "ERROR: Failed to clone MacTahoe-gtk-theme" >&2; exit 1; }
+    cd MacTahoe-gtk-theme || { echo "ERROR: Missing MacTahoe-gtk-theme directory after clone" >&2; exit 1; }
+    sudo ./install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode || { echo "ERROR: Failed to install MacTahoe-gtk-theme" >&2; exit 1; }
+    ./install.sh -l -o normal -b --shell -i apple -h smaller -sf --round || { echo "ERROR: Failed to configure MacTahoe-gtk-theme for user" >&2; exit 1; }
+    ./tweaks.sh -g -sf -nd -nb || { echo "ERROR: Failed to apply tweaks (step 1)" >&2; exit 1; }
+    ./tweaks.sh -f || { echo "ERROR: Failed to apply tweaks (step 2)" >&2; exit 1; }
+    ./tweaks.sh -f adaptive || { echo "ERROR: Failed to apply tweaks (step 3)" >&2; exit 1; }
+    ./tweaks.sh -F -c Dark || { echo "ERROR: Failed to apply tweaks (step 4)" >&2; exit 1; }
+    cd .. || { echo "ERROR: Failed to return from MacTahoe-gtk-theme dir" >&2; exit 1; }
 
-        git clone https://github.com/sglbl/fildem-for-gnome46.git --depth=1
-        cd fildem-for-gnome46
-        sudo pip install . --break-system-packages
-        mkdir -p ~/.config/gtk-3.0
-        printf "[Settings]\ngtk-modules=appmenu-gtk-module\n" > ~/.config/gtk-3.0/settings.ini
-        echo 'gtk-modules="appmenu-gtk-module"' >> ~/.gtkrc-2.0
-        mkdir -p ~/.config/autostart
-        cat <<EOF > ~/.config/autostart/fildem.desktop
-             [Desktop Entry]
-             Type=Application
-             Exec=fildem  
-             Hidden=false
-             NoDisplay=false
-             X-GNOME-Autostart-enabled=true
-             Name=Fildem Global Menu
-             Comment=Run Fildem backend
-             EOF
+    git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git --depth=1 || { echo "ERROR: Failed to clone MacTahoe-icon-theme" >&2; exit 1; }
+    cd MacTahoe-icon-theme || { echo "ERROR: Missing MacTahoe-icon-theme directory after clone" >&2; exit 1; }
+    ./install.sh -b || { echo "ERROR: Failed to install MacTahoe-icon-theme" >&2; exit 1; }
 
-        git clone https://github.com/kayozxo/ulauncher-liquid-glass.git
-        cd ulauncher-liquid-glass
-        ./install.sh
+    cd cursors || { echo "ERROR: Missing cursors directory" >&2; exit 1; }
+    sudo ./install.sh || { echo "ERROR: Failed to install cursors" >&2; exit 1; }
 
-        
-        cd "$ORIGINAL_DIR" || true
-        ) || exit 1
+    cd "$theme_work_dir" || { echo "ERROR: Failed to return to theme work dir" >&2; exit 1; }
+
+    git clone https://github.com/sglbl/fildem-for-gnome46.git --depth=1 || { echo "ERROR: Failed to clone fildem-for-gnome46" >&2; exit 1; }
+    cd fildem-for-gnome46 || { echo "ERROR: Missing fildem-for-gnome46 directory after clone" >&2; exit 1; }
+
+    # Install fildem dependencies into the user site to avoid touching system packages
+    python3 -m pip install --user . || { echo "ERROR: Failed to install fildem into user site-packages" >&2; exit 1; }
+
+    mkdir -p ~/.config/gtk-3.0 || { echo "ERROR: Failed to create gtk config dir" >&2; exit 1; }
+    printf "[Settings]\ngtk-modules=appmenu-gtk-module\n" > ~/.config/gtk-3.0/settings.ini
+    echo 'gtk-modules="appmenu-gtk-module"' >> ~/.gtkrc-2.0
+    mkdir -p ~/.config/autostart || { echo "ERROR: Failed to create autostart dir" >&2; exit 1; }
+
+    cat > ~/.config/autostart/fildem.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Exec=fildem
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name=Fildem Global Menu
+Comment=Run Fildem backend
+EOF
+
+    cd .. || { echo "ERROR: Failed to return from fildem directory" >&2; exit 1; }
+
+    git clone https://github.com/kayozxo/ulauncher-liquid-glass.git || { echo "ERROR: Failed to clone ulauncher-liquid-glass" >&2; exit 1; }
+    cd ulauncher-liquid-glass || { echo "ERROR: Missing ulauncher-liquid-glass directory after clone" >&2; exit 1; }
+    ./install.sh || { echo "ERROR: ulauncher-liquid-glass install failed" >&2; exit 1; }
+
+    cd "$ORIGINAL_DIR" || true
 }
 
 main() {
