@@ -153,7 +153,7 @@ configure_firefox() {
     
 }
 
-install_gnome_extensions{
+install_gnome_extensions(){
     extensions=(
         1488
         19
