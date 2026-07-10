@@ -43,7 +43,7 @@ install_required_softs() {
         fi
     done
 
-    if command -v gext &> /dev/null; then
+    if ! command -v gext &> /dev/null; then
         echo "gext is not found. Installing..."
         pip3 install --upgrade gnome-extensions-cli
         echo "gext is installed. Please restart the terminal."
