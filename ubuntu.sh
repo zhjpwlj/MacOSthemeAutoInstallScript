@@ -2,6 +2,24 @@
 set -euo pipefail
 
 # ============================================================#
+#                   SAFETY WRAPPERS                           #
+# ============================================================#
+
+# Save the original working directory
+ORIGINAL_DIR="$(pwd)"
+
+# Trap to restore working directory and cleanup on exit
+trap 'cd "$ORIGINAL_DIR" 2>/dev/null || true; rm -rf "${TMP:-}" 2>/dev/null || true' EXIT
+
+# Wrapper for checking if previous function succeeded
+check_previous_command() {
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Previous command failed!" >&2
+        exit 1
+    fi
+}
+
+# ============================================================#
 #                            TODO                             #
 # ============================================================#
 
@@ -48,7 +66,7 @@ check_compatible() {
 
     #make a temp dir
     TMP=$(mktemp -d)
-    trap 'rm -rf "$TMP"' EXIT
+    trap 'cd "$ORIGINAL_DIR" 2>/dev/null || true; rm -rf "$TMP" 2>/dev/null || true' EXIT
     cd "$TMP"
 
 }
@@ -84,7 +102,10 @@ install_required_softs() {
     for i in "${REQUIRED_PACKAGES[@]}"
     do
         echo "====> Installing $i..."
-        sudo apt -qq install -y "$i"
+        sudo apt -qq install -y "$i" || {
+            echo "ERROR: Failed to install $i" >&2
+            exit 1
+        }
         echo "====> $i is installed."
     done
 
@@ -95,7 +116,10 @@ install_required_softs() {
 
     if ! command -v gext &> /dev/null; then
         echo "gext not found. Installing..."
-        pipx install gnome-extensions-cli --system-site-packages
+        pipx install gnome-extensions-cli --system-site-packages || {
+            echo "ERROR: gext installation failed!" >&2
+            exit 1
+        }
         sleep 2  # wait for install to settle
     
         if command -v gext &> /dev/null; then
@@ -117,6 +141,7 @@ configure_firefox() {
         echo "Firefox is found. preceeding..."
     else
         echo "Firefox is not installed."
+        return 0
     fi
 
     PROFILE_DIR="$HOME/snap/firefox/common/.mozilla/firefox"
@@ -159,10 +184,16 @@ configure_firefox() {
         # Check if flag already exists
         if grep -q "^user_pref(\"$flag\"" "$USER_PROFILE/prefs.js"; then
             # Update existing flag
-            sed -i "s/^user_pref(\"$flag\", .*);/user_pref(\"$flag\", $value);/" "$USER_PROFILE/prefs.js"
+            sed -i "s/^user_pref(\"$flag\", .*);/user_pref(\"$flag\", $value);/" "$USER_PROFILE/prefs.js" || {
+                echo "ERROR: Failed to update Firefox flag $flag" >&2
+                exit 1
+            }
         else
             # Append new flag
-            echo "user_pref(\"$flag\", $value);" >> "$USER_PROFILE/prefs.js"
+            echo "user_pref(\"$flag\", $value);" >> "$USER_PROFILE/prefs.js" || {
+                echo "ERROR: Failed to append Firefox flag $flag" >&2
+                exit 1
+            }
         fi
     done
     
@@ -188,7 +219,7 @@ install_gnome_extensions(){
         4245
         8267
       )
-        #Fuzzy search, User themes, Compiz alike magic lamp effect, Blur my shell, Just perfection, Notification banner position, Clipboard indicator, Space bar, gnome 4x 5x improvement, Ubuntu tilting assistant, App menu is back, Fildem global menu, Coverflow alt+tab, Rounded corners, Dash2dock animated, Gesture improvements, Kiwi is not apple
+        #Fuzzy search, User themes, Compiz alike magic lamp effect, Blur my shell, Just perfection, Notification banner position, Clipboard indicator, Space bar, gnome 4x 5x improvement, Ubuntu tiltin[...]
   
       for ext in "${extensions[@]}"; do
         echo "Installing extension $ext..."
@@ -203,24 +234,63 @@ install_gnome_extensions(){
 }
 
 install_theme(){
-    git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1
-    cd MacTahoe-gtk-theme
-    sudo ./install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode
-    ./install.sh -l -o normal -b --shell -i apple -h smaller -sf --round
-    ./tweaks.sh -g -sf -nd -nb
-    ./tweaks.sh -f
-    ./tweaks.sh -f adaptive
-    ./tweaks.sh -F -c Dark
-    cd ..
+    # Save current directory and use subshell to prevent directory pollution
+    local theme_work_dir
+    theme_work_dir="$TMP/theme_install_$$"
+    mkdir -p "$theme_work_dir"
+    
+    (
+        cd "$theme_work_dir" || exit 1
+        
+        git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1 || {
+            echo "ERROR: Failed to clone MacTahoe-gtk-theme" >&2
+            exit 1
+        }
+        cd MacTahoe-gtk-theme || exit 1
+        sudo ./install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode || {
+            echo "ERROR: Failed to install MacTahoe-gtk-theme" >&2
+            exit 1
+        }
+        ./install.sh -l -o normal -b --shell -i apple -h smaller -sf --round || {
+            echo "ERROR: Failed to configure MacTahoe-gtk-theme for user" >&2
+            exit 1
+        }
+        ./tweaks.sh -g -sf -nd -nb || {
+            echo "ERROR: Failed to apply tweaks (step 1)" >&2
+            exit 1
+        }
+        ./tweaks.sh -f || {
+            echo "ERROR: Failed to apply tweaks (step 2)" >&2
+            exit 1
+        }
+        ./tweaks.sh -f adaptive || {
+            echo "ERROR: Failed to apply tweaks (step 3)" >&2
+            exit 1
+        }
+        ./tweaks.sh -F -c Dark || {
+            echo "ERROR: Failed to apply tweaks (step 4)" >&2
+            exit 1
+        }
+        cd ..
 
-    git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git --depth=1
-    cd MacTahoe-icon-theme
-    ./install.sh -b
+        git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git --depth=1 || {
+            echo "ERROR: Failed to clone MacTahoe-icon-theme" >&2
+            exit 1
+        }
+        cd MacTahoe-icon-theme || exit 1
+        ./install.sh -b || {
+            echo "ERROR: Failed to install MacTahoe-icon-theme" >&2
+            exit 1
+        }
 
-    cd cursors
-    sudo ./install.sh
+        cd cursors || exit 1
+        sudo ./install.sh || {
+            echo "ERROR: Failed to install cursors" >&2
+            exit 1
+        }
 
-    cd ~
+        cd "$ORIGINAL_DIR" || true
+    ) || exit 1
 }
 
 main() {
