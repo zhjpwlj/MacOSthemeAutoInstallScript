@@ -49,7 +49,7 @@ check_compatible() {
     #make a temp dir
     TMP=$(mktemp -d)
     trap 'rm -rf "$TMP"' EXIT
-    cd $TMP
+    cd "$TMP"
 
 }
 
