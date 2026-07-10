@@ -73,6 +73,7 @@ check_compatible() {
 
 
 install_required_softs() {
+    sudo add-apt-repository universe -y && sudo add-apt-repository ppa:agornostal/ulauncher -y
     local REQUIRED_PACKAGES=(curl
         jq
         unzip
@@ -80,6 +81,15 @@ install_required_softs() {
         procps
         file
         pipx
+        bamfdaemon
+        gir1.2-bamf-3
+        libbamf3-2
+        libkeybinder-3.0-0
+        gir1.2-keybinder-3.0
+        appmenu-gtk2-module
+        appmenu-gtk3-module
+        unity-gtk-module-common
+        python3-pip
         python3-venv
         gnome-shell
         gnome-tweaks
@@ -95,6 +105,7 @@ install_required_softs() {
         inkscape
         dconf-cli
         gnome-sushi
+        ulauncher
         )
     
     sudo apt -qq update
@@ -112,6 +123,8 @@ install_required_softs() {
     pipx ensurepath
     source ~/.bashrc
     export PATH="$PATH:$HOME/.local/bin"
+
+    sudo pip install future fuzzysearch --break-system-packages
     
 
     if ! command -v gext &> /dev/null; then
@@ -137,6 +150,8 @@ configure_firefox() {
     #              Check Firefox Status              #
     #================================================#
 
+    pkill firefox || true
+    
     if command -v firefox &> /dev/null; then
         echo "Firefox is found. preceeding..."
     else
@@ -289,8 +304,31 @@ install_theme(){
             exit 1
         }
 
+        git clone https://github.com/sglbl/fildem-for-gnome46.git --depth=1
+        cd fildem-for-gnome46
+        sudo pip install . --break-system-packages
+        mkdir -p ~/.config/gtk-3.0
+        printf "[Settings]\ngtk-modules=appmenu-gtk-module\n" > ~/.config/gtk-3.0/settings.ini
+        echo 'gtk-modules="appmenu-gtk-module"' >> ~/.gtkrc-2.0
+        mkdir -p ~/.config/autostart
+        cat <<EOF > ~/.config/autostart/fildem.desktop
+             [Desktop Entry]
+             Type=Application
+             Exec=fildem  
+             Hidden=false
+             NoDisplay=false
+             X-GNOME-Autostart-enabled=true
+             Name=Fildem Global Menu
+             Comment=Run Fildem backend
+             EOF
+
+        git clone https://github.com/kayozxo/ulauncher-liquid-glass.git
+        cd ulauncher-liquid-glass
+        ./install.sh
+
+        
         cd "$ORIGINAL_DIR" || true
-    ) || exit 1
+        ) || exit 1
 }
 
 main() {
