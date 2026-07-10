@@ -1,54 +1,9 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================#
 #                            TODO                             #
 # ============================================================#
-#add extension insatllation
-
-install_required_softs() {
-    local REQUIRED_PACKAGES=(curl
-        jq
-        unzip
-        build-essential
-        procps
-        file
-        pipx
-        gnome-shell
-        gnome-tweaks
-        timeshift
-        flatpak
-        gum
-        git
-        sassc
-        libglib2.0-dev-bin
-        libxml2-utils
-        imagemagick
-        dialog
-        optipng
-        inkscape
-        dconf-cli
-        gnome-sushi
-        )
-
-    sudo apt -qq update
-    
-    for i in "${REQUIRED_PACKAGES[@]}"
-    do
-        # Check if the package is already installed via dpkg
-        if dpkg -l | grep -q "ii  $i "; then
-            echo "====> $i is already installed. Skipping."
-        else
-            echo "====> Installing $i..."
-            sudo apt -qq install -y "$i"
-        fi
-    done
-
-    if ! command -v gext &> /dev/null; then
-        echo "gext is not found. Installing..."
-        pip3 install --upgrade gnome-extensions-cli
-        echo "gext is installed. Please restart the terminal."
-    fi
-}
 
 check_compatible() {
     #================================================#
@@ -89,6 +44,66 @@ check_compatible() {
     if ! curl --connect-timeout 3 -sI github.com &> /dev/null; then
         echo "This script requires an active internet connection."
         exit 1
+    fi
+
+    #make a temp dir
+    TMP=$(mktemp -d)
+    trap 'rm -rf "$TMP"' EXIT
+    cd $TMP
+
+}
+
+
+install_required_softs() {
+    local REQUIRED_PACKAGES=(curl
+        jq
+        unzip
+        build-essential
+        procps
+        file
+        pipx
+        python3-venv
+        gnome-shell
+        gnome-tweaks
+        timeshift
+        flatpak
+        git
+        sassc
+        libglib2.0-dev-bin
+        libxml2-utils
+        imagemagick
+        dialog
+        optipng
+        inkscape
+        dconf-cli
+        gnome-sushi
+        )
+    
+    sudo apt -qq update
+    
+    for i in "${REQUIRED_PACKAGES[@]}"
+    do
+        echo "====> Installing $i..."
+        sudo apt -qq install -y "$i"
+        echo "====> $i is installed."
+    done
+
+    pipx ensurepath
+    source ~/.bashrc
+    export PATH="$PATH:$HOME/.local/bin"
+    
+
+    if ! command -v gext &> /dev/null; then
+        echo "gext not found. Installing..."
+        pipx install gnome-extensions-cli --system-site-packages
+        sleep 2  # wait for install to settle
+    
+        if command -v gext &> /dev/null; then
+            echo "gext installed successfully."
+        else
+            echo "ERROR: gext installation failed!" >&2
+            exit 1
+        fi
     fi
 }
 
@@ -192,4 +207,28 @@ install_theme(){
     cd MacTahoe-gtk-theme
     sudo ./install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode
     ./install.sh -l -o normal -b --shell -i apple -h smaller -sf --round
-    
+    ./tweaks.sh -g -sf -nd -nb
+    ./tweaks.sh -f
+    ./tweaks.sh -f adaptive
+    ./tweaks.sh -F -c Dark
+    cd ..
+
+    git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git --depth=1
+    cd MacTahoe-icon-theme
+    ./install.sh -b
+
+    cd cursors
+    sudo ./install.sh
+
+    cd ~
+}
+
+main() {
+    check_compatible
+    install_required_softs
+    configure_firefox
+    install_gnome_extensions
+    install_theme
+}
+
+main
