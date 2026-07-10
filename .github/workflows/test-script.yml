@@ -24,7 +24,7 @@ jobs:
 
       - name: Execute script inside virtual desktop session
         run: |
-          chmod +x ./ubuntu-human.sh
+          chmod +x ./ubuntu.sh
           
           # 【重要】pipx が作成したバイナリの場所を直接環境変数の先頭に追加します
           export PATH="$HOME/.local/bin:$PATH"
@@ -33,4 +33,4 @@ jobs:
           dbus-run-session -- xvfb-run --server-num=99 -s "-ac" gext --version
           
           echo "=== Running script ==="
-          dbus-run-session -- xvfb-run --server-num=99 -s "-ac" ./ubuntu-human.sh
+          dbus-run-session -- xvfb-run --server-num=99 -s "-ac" ./ubuntu.sh
