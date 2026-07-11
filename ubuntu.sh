@@ -278,6 +278,10 @@ install_theme(){
             echo "ERROR: Failed to apply tweaks (step 3)" >&2
             exit 1
         }
+        sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || {
+            echo "ERROR: failed to override Flatpak theme"
+            exit 1
+        }
         ./tweaks.sh -F -c Dark || {
             echo "ERROR: Failed to apply tweaks (step 4)" >&2
             exit 1
@@ -300,15 +304,30 @@ install_theme(){
             exit 1
         }
 
+        git clone https://github.com/kayozxo/GNOME-macOS-Tahoe.git --depth=1 || {
+            echo "ERROR: Failed to clone GNOME-macOS-Tahoe"
+            exit 1
+        }
+
+        cd GNOME-macOS-Tahoe || exit 1
+
+        ./install.sh -w || exit 1
+        
+        ./install.sh -d -l || exit 1
+        ./install.sh -d -l -la || exit 1
+        sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || exit 1
+        ./install.sh --flatpak || exit 1
+
         git clone https://github.com/sglbl/fildem-for-gnome46.git --depth=1 || {
-            echo "failed to clone fildem-for-gnome46.git"
+            echo "ERROR:failed to clone fildem-for-gnome46.git"
+            exit 1
         }
         cd fildem-for-gnome46 || exit 1
-        sudo pip install . --break-system-packages
-        mkdir -p ~/.config/gtk-3.0
-        printf "[Settings]\ngtk-modules=appmenu-gtk-module\n" > ~/.config/gtk-3.0/settings.ini
-        echo 'gtk-modules="appmenu-gtk-module"' >> ~/.gtkrc-2.0
-        mkdir -p ~/.config/autostart
+        sudo pip install . --break-system-packages || exit 1
+        mkdir -p ~/.config/gtk-3.0 || exit 1
+        printf "[Settings]\ngtk-modules=appmenu-gtk-module\n" > ~/.config/gtk-3.0/settings.ini || exit 1
+        echo 'gtk-modules="appmenu-gtk-module"' >> ~/.gtkrc-2.0 || exit 1
+        mkdir -p ~/.config/autostart || exit 1
         cat <<EOF > ~/.config/autostart/fildem.desktop
              [Desktop Entry]
              Type=Application
@@ -320,9 +339,9 @@ install_theme(){
              Comment=Run Fildem backend
              EOF
 
-        git clone https://github.com/kayozxo/ulauncher-liquid-glass.git
-        cd ulauncher-liquid-glass
-        ./install.sh
+        git clone https://github.com/kayozxo/ulauncher-liquid-glass.git || exit 1
+        cd ulauncher-liquid-glass || exit 1
+        ./install.sh || exit 1
 
         
         cd "$ORIGINAL_DIR" || true
