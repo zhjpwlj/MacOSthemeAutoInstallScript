@@ -8,6 +8,10 @@ set -euo pipefail
 # Save the original working directory
 ORIGINAL_DIR="$(pwd)"
 
+#make a temp dir
+TMP=$(mktemp -d)
+cd "$TMP"
+
 # Trap to restore working directory and cleanup on exit
 trap 'cd "$ORIGINAL_DIR" 2>/dev/null || true; rm -rf "${TMP:-}" 2>/dev/null || true' EXIT
 
@@ -56,14 +60,10 @@ check_compatible() {
     
     echo "Environment verified: GNOME on Wayland. Proceeding..."
 
-    if ! curl --connect-timeout 3 -sI github.com &> /dev/null; then
+    if ! curl --connect-timeout 5 -sI github.com &> /dev/null; then
         echo "This script requires an active internet connection."
         exit 1
     fi
-
-    #make a temp dir
-    TMP=$(mktemp -d)
-    cd "$TMP"
 
 }
 
@@ -122,7 +122,6 @@ install_required_softs() {
 
     sudo pip install future fuzzysearch --break-system-packages
     
-
     if ! command -v gext &> /dev/null; then
         echo "gext not found. Installing..."
         pipx install gnome-extensions-cli --system-site-packages || {
@@ -135,6 +134,7 @@ install_required_softs() {
             echo "gext installed successfully."
         else
             echo "ERROR: gext installation failed!" >&2
+            echo "Restarting the terminal might help" >&2
             exit 1
         fi
     fi
@@ -182,7 +182,7 @@ configure_firefox() {
 
     echo "Configuring required Firefox flags..."
 
-    # Define the flags you want to enable
+    # Define the flags to enable
     declare -A FIREFOX_FLAGS=(
         ["layers.acceleration.force-enabled"]="true"
         ["toolkit.legacyUserProfileCustomizations.stylesheets"]="true"
