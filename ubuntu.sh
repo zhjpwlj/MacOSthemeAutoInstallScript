@@ -106,15 +106,11 @@ install_required_softs() {
     
     sudo apt -qq update
     
-    for i in "${REQUIRED_PACKAGES[@]}"
-    do
-        echo "====> Installing $i..."
-        sudo apt -qq install -y "$i" || {
-            echo "ERROR: Failed to install $i" >&2
-            exit 1
-        }
-        echo "====> $i is installed."
-    done
+    sudo apt -qq install -y "${REQUIRED_PACKAGES[@]}" || {
+        echo "ERROR: Failed to install one or more required packages." >&2
+        exit 1
+    }
+
 
     pipx ensurepath
     source ~/.bashrc
@@ -331,7 +327,7 @@ Name=Fildem Global Menu
 Comment=Run Fildem backend
 EOF
 
-        git clone https://github.com/kayozxo/ulauncher-liquid-glass.git || exit 1
+        git clone https://github.com/kayozxo/ulauncher-liquid-glass.git --depth=1 || exit 1
         cd ulauncher-liquid-glass || exit 1
         ./install.sh || exit 1
 
