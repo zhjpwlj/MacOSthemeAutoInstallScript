@@ -172,14 +172,6 @@ configure_firefox() {
         exit 1
     fi
 
-    # Search for the disabled flag inside prefs.js
-    if grep -q 'user_pref("browser.aboutwelcome.enabled", false);' "$USER_PROFILE/prefs.js"; then
-        echo "SUCCESS: Initialized Firefox Detected."
-    else
-        echo "Firefox onboarding process is not finished yet. Please initialize firefox first."
-        exit 1
-    fi
-
     echo "Configuring required Firefox flags..."
 
     # Define the flags to enable
