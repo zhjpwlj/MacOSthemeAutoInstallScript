@@ -329,15 +329,15 @@ install_theme(){
         echo 'gtk-modules="appmenu-gtk-module"' >> ~/.gtkrc-2.0 || exit 1
         mkdir -p ~/.config/autostart || exit 1
         cat <<EOF > ~/.config/autostart/fildem.desktop
-             [Desktop Entry]
-             Type=Application
-             Exec=fildem  
-             Hidden=false
-             NoDisplay=false
-             X-GNOME-Autostart-enabled=true
-             Name=Fildem Global Menu
-             Comment=Run Fildem backend
-             EOF
+[Desktop Entry]
+Type=Application
+Exec=fildem  
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name=Fildem Global Menu
+Comment=Run Fildem backend
+EOF
 
         git clone https://github.com/kayozxo/ulauncher-liquid-glass.git || exit 1
         cd ulauncher-liquid-glass || exit 1
