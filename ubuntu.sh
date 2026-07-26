@@ -219,12 +219,13 @@ install_gnome_extensions(){
         4994
         4245
         8267
+        10288
       )
-        #Fuzzy search, User themes, Compiz alike magic lamp effect, Blur my shell, Just perfection, Notification banner position, Clipboard indicator, Space bar, gnome 4x 5x improvement, Ubuntu tilting assistant, App menu is back, Fildem global menu, Coverflow alt+tab, Rounded corners, Dash2dock animated, Gesture improvements, Kiwi is not apple
+        #Fuzzy search, User themes, Compiz alike magic lamp effect, Blur my shell, Just perfection, Notification banner position, Clipboard indicator, Space bar, gnome 4x 5x improvement, Ubuntu tilting assistant, App menu is back, Fildem global menu, Coverflow alt+tab, Rounded corners, Dash2dock animated, Gesture improvements, Kiwi is not apple, Global Menu for Gnome
   
       for ext in "${extensions[@]}"; do
         echo "Installing extension $ext..."
-        sudo gext install "$ext" || {
+        gext install "$ext" || {
           echo "Warning: Failed to install extension $ext"
           continue
         }
@@ -309,7 +310,8 @@ install_theme(){
         ./install.sh -d -l -la || exit 1
         sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || exit 1
         ./install.sh --flatpak || exit 1
-
+	
+	cd "$theme_work_dir"
         git clone https://github.com/sglbl/fildem-for-gnome46.git --depth=1 || {
             echo "ERROR:failed to clone fildem-for-gnome46.git"
             exit 1
@@ -340,12 +342,28 @@ EOF
         ) || exit 1
 }
 
+apply_settings(){
+	#apply setting for gnome tweak managed settings
+	gsettings set org.gnome.desktop.interface gtk-theme "MacTahoe-Dark"
+	gsettings set org.gnome.desktop.interface icon-theme "MacTahoe-dark"
+	gsettings set org.gnome.desktop.interface cursor-theme "MacTahoe-cursors"
+	gsettings set org.gnome.desktop.interface color-scheme "prefer-dark"
+	gsettings set org.gnome.desktop.wm.preferences button-layout 'close,maximize,minimize:'
+
+	
+	#apply user themes
+	gsettings set org.gnome.shell.extensions.user-theme name "MacTahoe-Dark"
+	
+	
+}
+
 main() {
     check_compatible
     install_required_softs
     configure_firefox
     install_gnome_extensions
     install_theme
+    apply_settings
 }
 
 main
