@@ -70,7 +70,9 @@ check_compatible() {
 
 install_required_softs() {
     sudo add-apt-repository universe -y && sudo add-apt-repository ppa:agornostal/ulauncher -y
-    local REQUIRED_PACKAGES=(curl
+    local REQUIRED_PACKAGES=(
+    	curl
+        appmenu-gtk3-module
         jq
         unzip
         build-essential
@@ -82,8 +84,6 @@ install_required_softs() {
         libbamf3-2
         libkeybinder-3.0-0
         gir1.2-keybinder-3.0
-        appmenu-gtk2-module
-        appmenu-gtk3-module
         unity-gtk-module-common
         python3-pip
         python3-venv
@@ -106,10 +106,12 @@ install_required_softs() {
     
     sudo apt -qq update
     
-    sudo apt -qq install -y "${REQUIRED_PACKAGES[@]}" || {
-        echo "ERROR: Failed to install one or more required packages." >&2
-        exit 1
-    }
+    sudo apt -qq install -y "${REQUIRED_PACKAGES[@]}"  || true
+    
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    
+    flatpak install -y flathub com.mattjakeman.ExtensionManager
+
 
 
     pipx ensurepath
@@ -222,7 +224,7 @@ install_gnome_extensions(){
   
       for ext in "${extensions[@]}"; do
         echo "Installing extension $ext..."
-        gext install "$ext" || {
+        sudo gext install "$ext" || {
           echo "Warning: Failed to install extension $ext"
           continue
         }
@@ -230,6 +232,8 @@ install_gnome_extensions(){
           echo "Warning: Failed to enable extension $ext"
         }
       done
+      
+      gext disable ubuntu-dock@ubuntu.com 
 }
 
 install_theme(){
@@ -254,7 +258,7 @@ install_theme(){
             echo "ERROR: Failed to configure MacTahoe-gtk-theme for user" >&2
             exit 1
         }
-        ./tweaks.sh -g -sf -nd -nb || {
+        sudo ./tweaks.sh -g -sf -nd -nb || {
             echo "ERROR: Failed to apply tweaks (step 1)" >&2
             exit 1
         }
