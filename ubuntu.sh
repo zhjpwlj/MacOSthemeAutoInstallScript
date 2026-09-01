@@ -60,7 +60,15 @@ check_compatible() {
     
     echo "Environment verified: GNOME on Wayland. Proceeding..."
 
-    if ! curl --connect-timeout 5 -sI github.com &> /dev/null; then
+    if command -v curl &> /dev/null; then
+		echo "curl exisists. Proceeding.."
+	else
+		echo "curl doesn't exsist. installing..."
+		sudo apt -qq install curl
+		echo "curl installed. Proceeding..."
+	fi
+	
+	if ! curl --connect-timeout 5 -sI github.com &> /dev/null; then
         echo "This script requires an active internet connection."
         exit 1
     fi
