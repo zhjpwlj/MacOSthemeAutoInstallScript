@@ -77,7 +77,7 @@ check_compatible() {
 
 
 install_required_softs() {
-    sudo add-apt-repository universe -y && sudo add-apt-repository ppa:agornostal/ulauncher -y
+    sudo add-apt-repository universe -y -n > /dev/null && sudo add-apt-repository ppa:agornostal/ulauncher -y -n > /dev/null
     local REQUIRED_PACKAGES=(
     	curl
         appmenu-gtk3-module
@@ -151,7 +151,7 @@ configure_firefox() {
     #================================================#
     #              Check Firefox Status              #
     #================================================#
-
+	
     pkill firefox || true
     
     if command -v firefox &> /dev/null; then
