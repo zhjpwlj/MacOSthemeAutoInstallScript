@@ -1,75 +1,63 @@
 #!/bin/bash
 set -euo pipefail
 
-# ============================================================#
-#                   SAFETY WRAPPERS                           #
-# ============================================================#
+safty_wrappers(){
+	# Save the original dir
+	ORIGINAL_DIR="$(pwd)"
 
-# Save the original working directory
-ORIGINAL_DIR="$(pwd)"
+	# Make a temp dir
+	TMP=$(mktemp -d)
+	cd "$TMP"
 
-#make a temp dir
-TMP=$(mktemp -d)
-cd "$TMP"
+	# Trap to restore dir and cleanup on exit
+	trap 'cd "$ORIGINAL_DIR" 2>/dev/null || true; rm -rf "${TMP:-}" 2>/dev/null || true' EXIT
 
-# Trap to restore working directory and cleanup on exit
-trap 'cd "$ORIGINAL_DIR" 2>/dev/null || true; rm -rf "${TMP:-}" 2>/dev/null || true' EXIT
+	# Log file
+	LOGFILE="$HOME/.MacOSthemeAutoInstallScript.log"
+	# Append all stdout/stderr to the logfile while also showing it on the console
+	exec > >(tee -a "$LOGFILE") 2>&1
+}
 
-# Log file
-LOGFILE="$HOME/.MacOSthemeAutoInstallScript.log"
-# Append all stdout/stderr to the logfile while also showing it on the console
-exec > >(tee -a "$LOGFILE") 2>&1
-
-# ============================================================#
-#                            TODO                             #
-# ============================================================#
-
-check_compatible() {
-    #================================================#
-    #           Check system compatibility           #
-    #================================================#
-    
+check_compatible() {   
     # Ensure the OS release file exists
     if [ ! -f /etc/os-release ]; then
-        echo "Error: Cannot determine the operating system." >&2
+        echo -e "${RED}[ERROR] Could not determine the operating system." >&2
         exit 1
     fi
     
     # Load OS variables
     . /etc/os-release
 
-    # Strict check for Ubuntu
+    # Check for Ubuntu
     if [ "$ID" != "ubuntu" ]; then    
-        echo "Warning: This script is only intended for Ubuntu. Current OS: $NAME" >&2
+        echo -e "${RED}[ERROR] This script is only intended for Ubuntu. Current OS: $NAME" >&2
         exit 1
     fi
 
-    echo "Ubuntu detected. Proceeding with the script..."
-
-    # Check for GNOME Desktop
+    # Check for GNOME
     if [ "$XDG_CURRENT_DESKTOP" != "GNOME" ] && [ "$XDG_CURRENT_DESKTOP" != "ubuntu:GNOME" ]; then
-        echo "Warning: This script requires the GNOME desktop environment." >&2
+        echo -e "${RED}[ERROR] This script requires the GNOME desktop environment." >&2
         exit 1
     fi
 
-    # Check for Wayland Display Server
+    # Check for Wayland
     if [ "$XDG_SESSION_TYPE" != "wayland" ]; then
-        echo "Warning: This script requires a Wayland session." >&2
+        echo -e"${RED}[ERROR] This script requires a Wayland session." >&2
         exit 1
     fi
     
-    echo "Environment verified: GNOME on Wayland. Proceeding..."
+    echo "Environment verified: ubuntu with GNOME on Wayland. Proceeding..."
 
     if command -v curl &> /dev/null; then
-		echo "curl exisists. Proceeding.."
+		echo -e "curl exisists. Proceeding.."
 	else
-		echo "curl doesn't exsist. installing..."
-		sudo apt -qq install curl
-		echo "curl installed. Proceeding..."
+		echo -e "curl doesn't exsist. installing..."
+		sudo apt -qq -y install curl
+		echo -e "curl installed. Proceeding..."
 	fi
 	
 	if ! curl --connect-timeout 5 -sI github.com &> /dev/null; then
-        echo "This script requires an active internet connection."
+        echo -e "${RED}[ERROR] This script requires an active internet connection."
         exit 1
     fi
 
@@ -320,35 +308,9 @@ install_theme(){
         ./install.sh --flatpak || exit 1
 	
 	cd "$theme_work_dir"
-        git clone https://github.com/sglbl/fildem-for-gnome46.git --depth=1 || {
-            echo "ERROR:failed to clone fildem-for-gnome46.git"
-            exit 1
-        }
-        cd fildem-for-gnome46 || exit 1
-        sudo pip install . --break-system-packages || exit 1
-        mkdir -p ~/.config/gtk-3.0 || exit 1
-        printf "[Settings]\ngtk-modules=appmenu-gtk-module\n" > ~/.config/gtk-3.0/settings.ini || exit 1
-        echo 'gtk-modules="appmenu-gtk-module"' >> ~/.gtkrc-2.0 || exit 1
-        mkdir -p ~/.config/autostart || exit 1
-        cat <<EOF > ~/.config/autostart/fildem.desktop
-[Desktop Entry]
-Type=Application
-Exec=fildem  
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-Name=Fildem Global Menu
-Comment=Run Fildem backend
-EOF
 
-        git clone https://github.com/kayozxo/ulauncher-liquid-glass.git --depth=1 || exit 1
-        cd ulauncher-liquid-glass || exit 1
-        ./install.sh || exit 1
+	}
 
-        
-        cd "$ORIGINAL_DIR" || true
-        ) || exit 1
-}
 
 apply_settings(){
 	#apply setting for gnome tweak managed settings
