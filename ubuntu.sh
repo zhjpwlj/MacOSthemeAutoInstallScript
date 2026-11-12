@@ -1,6 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+set_variables(){
+	N='\e[0m'
+	R='\e[1;31m'
+	O='\e[38;5;214m'
+	G='\e[1;32m'
+}
+
 safty_wrappers(){
 	# Save the original dir
 	ORIGINAL_DIR="$(pwd)"
@@ -21,7 +28,7 @@ safty_wrappers(){
 check_compatible() {   
     # Ensure the OS release file exists
     if [ ! -f /etc/os-release ]; then
-        echo -e "${RED}[ERROR] Could not determine the operating system." >&2
+        echo -e "${R}[ ERROR ]${N} Could not determine the operating system." >&2
         exit 1
     fi
     
@@ -30,19 +37,19 @@ check_compatible() {
 
     # Check for Ubuntu
     if [ "$ID" != "ubuntu" ]; then    
-        echo -e "${RED}[ERROR] This script is only intended for Ubuntu. Current OS: $NAME" >&2
+        echo -e "${R}[ ERROR ]${N} This script is only intended for Ubuntu. Current OS: $NAME" >&2
         exit 1
     fi
 
     # Check for GNOME
     if [ "$XDG_CURRENT_DESKTOP" != "GNOME" ] && [ "$XDG_CURRENT_DESKTOP" != "ubuntu:GNOME" ]; then
-        echo -e "${RED}[ERROR] This script requires the GNOME desktop environment." >&2
+        echo -e "${R}[ ERROR ]${N} This script requires the GNOME desktop environment." >&2
         exit 1
     fi
 
     # Check for Wayland
     if [ "$XDG_SESSION_TYPE" != "wayland" ]; then
-        echo -e"${RED}[ERROR] This script requires a Wayland session." >&2
+        echo -e "${R}[ ERROR ]${N} This script requires a Wayland session." >&2
         exit 1
     fi
     
@@ -57,7 +64,7 @@ check_compatible() {
 	fi
 	
 	if ! curl --connect-timeout 5 -sI github.com &> /dev/null; then
-        echo -e "${RED}[ERROR] This script requires an active internet connection."
+        echo -e "${R}[ ERROR ]${N} This script requires an active internet connection."
         exit 1
     fi
 
@@ -65,7 +72,23 @@ check_compatible() {
 
 
 install_required_softs() {
-    sudo add-apt-repository universe -y -n > /dev/null && sudo add-apt-repository ppa:agornostal/ulauncher -y -n > /dev/null
+
+	local REPOS=(
+		universe
+		ppa:agornostal/ulauncher
+	)
+
+	  for repo in "${REPOS[@]}"; do
+	  	if ! grep -q "$repo" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
+        	echo "Adding apt repository $repo..."
+	        sudo add-apt-repository "$repo" -y -n || {
+				echo "${R}[ ERROR ]${N} Failed to add repository $repo"
+				echo "Continuing anyways..."
+	    		continue
+        	}
+		fi
+      done
+
     local REQUIRED_PACKAGES=(
     	curl
         appmenu-gtk3-module
@@ -100,13 +123,22 @@ install_required_softs() {
         ulauncher
         )
     
-    sudo apt -qq update
+    sudo apt -q update
     
-    sudo apt -qq install -y "${REQUIRED_PACKAGES[@]}"  || true
+    for package in "${REQUIRED_PACKAGES[@]}"; do
+        echo "Installing software $ext..."
+        sudo apt -q -y install "$package" || {
+          echo "${R}[ ERROR ]${N} Failed to install package $ext"
+		  echo "Continuing anyways..."
+          continue
+        }
+      done
     
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     
-    flatpak install -y flathub com.mattjakeman.ExtensionManager
+    flatpak install -y flathub com.mattjakeman.ExtensionManager || {
+		echo "${R}[ ERROR ]${N} Failed to install ExtensionManager"
+		echo "${R}[ ERROR ]${N} Continuing anyways..."
 
 
 
@@ -119,7 +151,7 @@ install_required_softs() {
     if ! command -v gext &> /dev/null; then
         echo "gext not found. Installing..."
         pipx install gnome-extensions-cli --system-site-packages || {
-            echo "ERROR: gext installation failed!" >&2
+            echo "${R}[ ERROR ]${N} gext installation failed!" >&2
             exit 1
         }
         sleep 2  # wait for install to settle
@@ -127,7 +159,7 @@ install_required_softs() {
         if command -v gext &> /dev/null; then
             echo "gext installed successfully."
         else
-            echo "ERROR: gext installation failed!" >&2
+            echo "${R}[ ERROR ]${N} gext installation failed!" >&2
             echo "Restarting the terminal might help" >&2
             exit 1
         fi
@@ -162,7 +194,7 @@ configure_firefox() {
 
     # 3. Verify the profile and check the onboarding status
     if [ -z "$USER_PROFILE" ] || [ ! -f "$USER_PROFILE/prefs.js" ]; then
-        echo "Firefox profile has not been created yet. Launch Firefox once first."
+        echo "${R}[ ERROR ]${N} Firefox profile has not been created yet. Launch Firefox once first."
         exit 1
     fi
 
@@ -182,13 +214,13 @@ configure_firefox() {
         if grep -q "^user_pref(\"$flag\"" "$USER_PROFILE/prefs.js"; then
             # Update existing flag
             sed -i "s/^user_pref(\"$flag\", .*);/user_pref(\"$flag\", $value);/" "$USER_PROFILE/prefs.js" || {
-                echo "ERROR: Failed to update Firefox flag $flag" >&2
+                echo "${R}[ ERROR ]${N} Failed to update Firefox flag $flag" >&2
                 exit 1
             }
         else
             # Append new flag
             echo "user_pref(\"$flag\", $value);" >> "$USER_PROFILE/prefs.js" || {
-                echo "ERROR: Failed to append Firefox flag $flag" >&2
+                echo "${R}[ ERROR ]${N} Failed to append Firefox flag $flag" >&2
                 exit 1
             }
         fi
@@ -243,72 +275,65 @@ install_theme(){
         cd "$theme_work_dir" || exit 1
         
         git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1 || {
-            echo "ERROR: Failed to clone MacTahoe-gtk-theme" >&2
+            echo "${R}[ ERROR ]${N} Failed to clone MacTahoe-gtk-theme" >&2
             exit 1
         }
-        cd MacTahoe-gtk-theme || exit 1
-        sudo ./install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode || {
-            echo "ERROR: Failed to install MacTahoe-gtk-theme" >&2
+		
+        sudo .$theme_work_dir/MacTahoe-gtk-theme/install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode || {
+            echo "${R}[ ERROR ]${N} Failed to install MacTahoe-gtk-theme" >&2
             exit 1
         }
-        ./install.sh -l -o normal -b --shell -i apple -h smaller -sf --round || {
-            echo "ERROR: Failed to configure MacTahoe-gtk-theme for user" >&2
+        .$theme_work_dir/MacTahoe-gtk-theme/install.sh -l -o normal -b --shell -i apple -h smaller -sf --round || {
+            echo "${R}[ ERROR ]${N} Failed to configure MacTahoe-gtk-theme for libadwaita" >&2
             exit 1
         }
-        sudo ./tweaks.sh -g -sf -nd -nb || {
-            echo "ERROR: Failed to apply tweaks (step 1)" >&2
+        sudo .$theme_work_dir/MacTahoe-gtk-theme/tweaks.sh -g -sf -nd -nb || {
+            echo "${R}[ ERROR ]${N} Failed to apply tweaks (step 1)" >&2
             exit 1
         }
-        ./tweaks.sh -f || {
-            echo "ERROR: Failed to apply tweaks (step 2)" >&2
+        .$theme_work_dir/MacTahoe-gtk-theme/tweaks.sh -f || {
+            echo "${R}[ ERROR ]${N} Failed to apply tweaks (step 2)" >&2
             exit 1
         }
-        ./tweaks.sh -f adaptive || {
-            echo "ERROR: Failed to apply tweaks (step 3)" >&2
+        .$theme_work_dir/MacTahoe-gtk-theme/tweaks.sh -f adaptive || {
+            echo "${R}[ ERROR ]${N} Failed to apply tweaks (step 3)" >&2
             exit 1
         }
         sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || {
-            echo "ERROR: failed to override Flatpak theme"
+            echo "${R}[ ERROR ]${N} failed to override Flatpak theme"
             exit 1
         }
-        ./tweaks.sh -F -c Dark || {
-            echo "ERROR: Failed to apply tweaks (step 4)" >&2
+        .$theme_work_dir/MacTahoe-gtk-theme/tweaks.sh -F -c Dark || {
+            echo "${R}[ ERROR ]${N} Failed to apply tweaks (step 4)" >&2
             exit 1
         }
-        cd ..
 
         git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git --depth=1 || {
-            echo "ERROR: Failed to clone MacTahoe-icon-theme" >&2
+            echo "${R}[ ERROR ]${N} Failed to clone MacTahoe-icon-theme" >&2
             exit 1
         }
-        cd MacTahoe-icon-theme || exit 1
-        ./install.sh -b || {
-            echo "ERROR: Failed to install MacTahoe-icon-theme" >&2
+		
+        .$theme_work_dir/MacTahoe-icon-theme/install.sh -b || {
+            echo "${R}[ ERROR ]${N} Failed to install MacTahoe-icon-theme" >&2
             exit 1
         }
 
-        cd cursors || exit 1
-        sudo ./install.sh || {
-            echo "ERROR: Failed to install cursors" >&2
+        sudo .$theme_work_dir/MacTahoe-icon-theme/cursors/install.sh || {
+            echo "${R}[ ERROR ]${N} Failed to install cursors" >&2
             exit 1
         }
 
         git clone https://github.com/kayozxo/GNOME-macOS-Tahoe.git --depth=1 || {
-            echo "ERROR: Failed to clone GNOME-macOS-Tahoe"
+            echo "${R}[ ERROR ]${N} Failed to clone GNOME-macOS-Tahoe"
             exit 1
         }
 
-        cd GNOME-macOS-Tahoe || exit 1
-
-        ./install.sh -w || exit 1
+        .$theme_work_dir/GNOME-macOS-Tahoe/install.sh -w || exit 1
         
-        ./install.sh -d -l || exit 1
-        ./install.sh -d -l -la || exit 1
+        .$theme_work_dir/GNOME-macOS-Tahoe/install.sh -d -l || exit 1
+        .$theme_work_dir/GNOME-macOS-Tahoe/install.sh -d -l -la || exit 1
         sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || exit 1
-        ./install.sh --flatpak || exit 1
-	
-	cd "$theme_work_dir"
-
+        .$theme_work_dir/GNOME-macOS-Tahoe/install.sh --flatpak || exit 1
 	}
 
 
@@ -328,6 +353,8 @@ apply_settings(){
 }
 
 main() {
+	set_variables
+	safty_wrappers
     check_compatible
     install_required_softs
     configure_firefox
