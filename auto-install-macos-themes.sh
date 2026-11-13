@@ -6,6 +6,11 @@ set_variables() {
 	R='\e[1;31m'        #red (bolded)
 	O='\e[1;38;5;214m'  #orange (bolded)
 	G='\e[1;32m'        #green (bolded)
+
+	E='${R}[ ERROR ]${N} '
+	W='${O}[WARNING]${N} '
+	L='${O}[  LOG  ]${N} '
+	
 }
 
 safty_wrappers() {
@@ -70,18 +75,17 @@ check_compatible() {
 
 }
 
-
 install_required_softs() {
 
 	local REPOS=(
 		universe
-		ppa:agornostal/ulauncher
+		-P ppa:agornostal/ulauncher #add the -P option to add a ppa repository
 	)
 
 	  for repo in "${REPOS[@]}"; do
 	  	if ! grep -q "$repo" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
         	echo -e "Adding apt repository $repo..."
-	        sudo add-apt-repository "$repo" -y -n || {
+	        sudo add-apt-repository "$repo" -y -n || { #use -n option to prevent updating after adding the repo
 				echo -e "${R}[ ERROR ]${N} Failed to add repository $repo"
 				echo -e "Continuing anyways..."
 	    		continue
