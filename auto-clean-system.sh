@@ -1,8 +1,4 @@
 #!/bin/bash
-#
-# housekeeping.sh — system cleanup with per-tool guards
-# Each section runs only if the relevant tool/package exists.
-#
 
 set -u
 
