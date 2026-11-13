@@ -2,10 +2,10 @@
 set -euo pipefail
 
 set_variables(){
-	N='\e[0m'
-	R='\e[1;31m'
-	O='\e[38;5;214m'
-	G='\e[1;32m'
+	N='\e[0m'           #reset all formattings
+	R='\e[1;31m'        #red (bolded)
+	O='\e[1;38;5;214m'  #orange (bolded)
+	G='\e[1;32m'        #green (bolded)
 }
 
 safty_wrappers(){
