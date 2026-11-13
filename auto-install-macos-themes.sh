@@ -343,7 +343,6 @@ install_theme() {
 
 }
 
-
 apply_settings() {
 	#apply setting for gnome tweak managed settings
 	gsettings set org.gnome.desktop.interface gtk-theme "MacTahoe-Dark"
