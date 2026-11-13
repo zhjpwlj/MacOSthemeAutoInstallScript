@@ -82,8 +82,8 @@ check_compatible() {
 install_required_softs() {
 
 	local REPOS=(
-		universe
-		-P ppa:agornostal/ulauncher #add the -P option to add a ppa repository
+		"universe"
+		"-P ppa:agornostal/ulauncher" #add the -P option to add a ppa repository
 	)
 
 	  for repo in "${REPOS[@]}"; do
@@ -363,7 +363,7 @@ install_theme() {
 			echo -e "${E}Failed to clone orbit-global-menu" >&2
 			exit 1
 		}
-		cd orbit-global-menu || exit 1
+		cd "$theme_work_dir"/orbit-global-menu || exit 1
 
 		cp -r 'global-menu@unmade.space' "$HOME/.local/share/gnome-shell/extensions/" || {
 			echo -e "${E}Failed to copy global-menu extension" >&2
@@ -381,7 +381,7 @@ install_theme() {
     		echo -e "${L}Continuing anyways..."
 		}
 
-		cd "$theme_work_dir"
+		cd "$theme_work_dir/orbit-global-menu"
 
 		make build || {
 			echo -e "${E}Failed to build orbit-global-menu" >&2
@@ -391,8 +391,9 @@ install_theme() {
 			echo -e "${E}Failed to install global-menu deb" >&2
 			exit 1
 		}
-}
 
+        cd "$theme_work_dir"
+}
 
 apply_settings() {
 	#apply setting for gnome tweak managed settings
