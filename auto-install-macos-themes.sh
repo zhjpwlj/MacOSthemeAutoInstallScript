@@ -127,6 +127,8 @@ install_required_softs() {
         dconf-cli
         gnome-sushi
         ulauncher
+		make
+		python3-setuptools
         )
     
     sudo apt -q update
@@ -272,10 +274,12 @@ install_gnome_extensions() {
         }
         gext enable "$ext" || {
           echo -e "${E}Failed to enable extension $ext"
+		  echo -e "${L}This is possibly due to wayland restraints."
+		  echo -e "${L}Logout and log back in before running the script again may help."
           echo -e "${L}Continuing anyways..."
         }
       done
-      
+
       gext disable ubuntu-dock@ubuntu.com || true
 }
 
@@ -354,6 +358,16 @@ install_theme() {
 		
         "$theme_work_dir"/GNOME-macOS-Tahoe/install.sh --flatpak || exit 1
 
+		git clone https://github.com/Unmade760/orbit-global-menu.git
+		cd orbit-global-menu
+		cp -r 'global-menu@unmade.space' ~/.local/share/gnome-shell/extensions/
+		glib-compile-schemas ~/.local/share/gnome-shell/extensions/'global-menu@unmade.space'/schemas
+
+		sudo apt install git make python3-setuptools
+		git clone https://github.com/Unmade760/orbit-global-menu.git
+		cd orbit-global-menu
+		make build
+		sudo apt install ./global-menu_*.deb
 }
 
 
