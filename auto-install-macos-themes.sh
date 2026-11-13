@@ -268,12 +268,12 @@ install_gnome_extensions() {
       for ext in "${extensions[@]}"; do
         echo -e "${L}Installing extension $ext..."
         gext install "$ext" || {
-          echo -e "${E}Failed to install extension $ext"
+          echo -e "${E}Failed to install extension $ext."
           echo -e "${L}Continuing anyways..."
           continue
         }
         gext enable "$ext" || {
-          echo -e "${E}Failed to enable extension $ext"
+          echo -e "${E}Failed to enable extension $ext."
 		  echo -e "${L}This is possibly due to wayland restraints."
 		  echo -e "${L}Logout and log back in before running the script again may help."
           echo -e "${L}Continuing anyways..."
@@ -358,16 +358,39 @@ install_theme() {
 		
         "$theme_work_dir"/GNOME-macOS-Tahoe/install.sh --flatpak || exit 1
 
-		git clone https://github.com/Unmade760/orbit-global-menu.git
-		cd orbit-global-menu
-		cp -r 'global-menu@unmade.space' ~/.local/share/gnome-shell/extensions/
-		glib-compile-schemas ~/.local/share/gnome-shell/extensions/'global-menu@unmade.space'/schemas
+		mkdir -p "$HOME/.local/share/gnome-shell/extensions/"
+		git clone https://github.com/Unmade760/orbit-global-menu.git || {
+			echo -e "${E}Failed to clone orbit-global-menu" >&2
+			exit 1
+		}
+		cd orbit-global-menu || exit 1
 
-		sudo apt install git make python3-setuptools
-		git clone https://github.com/Unmade760/orbit-global-menu.git
-		cd orbit-global-menu
-		make build
-		sudo apt install ./global-menu_*.deb
+		cp -r 'global-menu@unmade.space' "$HOME/.local/share/gnome-shell/extensions/" || {
+			echo -e "${E}Failed to copy global-menu extension" >&2
+			exit 1
+		}
+		glib-compile-schemas "$HOME/.local/share/gnome-shell/extensions/global-menu@unmade.space/schemas" || {
+			echo -e "${E}Failed to compile global-menu schemas" >&2
+			exit 1
+		}
+
+		gext enable global-menu@unmade.space || {
+			echo -e "${E}Failed to enable extension global-menu@unmade.space."
+			echo -e "${L}This is possibly due to wayland restraints."
+			echo -e "${L}Logout and log back in before running the script again may help."
+    		echo -e "${L}Continuing anyways..."
+		}
+
+		cd "$theme_work_dir"
+
+		make build || {
+			echo -e "${E}Failed to build orbit-global-menu" >&2
+			exit 1
+		}
+		sudo apt -q -y install ./global-menu_*.deb || {
+			echo -e "${E}Failed to install global-menu deb" >&2
+			exit 1
+		}
 }
 
 
