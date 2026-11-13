@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-set_variables(){
+set_variables() {
 	N='\e[0m'           #reset all formattings
 	R='\e[1;31m'        #red (bolded)
 	O='\e[1;38;5;214m'  #orange (bolded)
 	G='\e[1;32m'        #green (bolded)
 }
 
-safty_wrappers(){
+safty_wrappers() {
 	# Save the original dir
 	ORIGINAL_DIR="$(pwd)"
 
@@ -53,7 +53,7 @@ check_compatible() {
         exit 1
     fi
     
-    echo "Environment verified: ubuntu with GNOME on Wayland. Proceeding..."
+    echo -e "Environment verified: ubuntu with GNOME on Wayland. Proceeding..."
 
     if command -v curl &> /dev/null; then
 		echo -e "curl exisists. Proceeding.."
@@ -80,10 +80,10 @@ install_required_softs() {
 
 	  for repo in "${REPOS[@]}"; do
 	  	if ! grep -q "$repo" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
-        	echo "Adding apt repository $repo..."
+        	echo -e "Adding apt repository $repo..."
 	        sudo add-apt-repository "$repo" -y -n || {
-				echo "${R}[ ERROR ]${N} Failed to add repository $repo"
-				echo "Continuing anyways..."
+				echo -e "${R}[ ERROR ]${N} Failed to add repository $repo"
+				echo -e "Continuing anyways..."
 	    		continue
         	}
 		fi
@@ -126,10 +126,10 @@ install_required_softs() {
     sudo apt -q update
     
     for package in "${REQUIRED_PACKAGES[@]}"; do
-        echo "Installing software $ext..."
+        echo -e "Installing software $ext..."
         sudo apt -q -y install "$package" || {
-          echo "${R}[ ERROR ]${N} Failed to install package $ext"
-		  echo "Continuing anyways..."
+          echo -e "${R}[ ERROR ]${N} Failed to install package $ext"
+		  echo -e "Continuing anyways..."
           continue
         }
       done
@@ -137,8 +137,9 @@ install_required_softs() {
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     
     flatpak install -y flathub com.mattjakeman.ExtensionManager || {
-		echo "${R}[ ERROR ]${N} Failed to install ExtensionManager"
-		echo "${R}[ ERROR ]${N} Continuing anyways..."
+		echo -e "${R}[ ERROR ]${N} Failed to install ExtensionManager"
+		echo -e "${R}[ ERROR ]${N} Continuing anyways..."
+		}
 
 
 
@@ -149,18 +150,18 @@ install_required_softs() {
     sudo pip install future fuzzysearch --break-system-packages
     
     if ! command -v gext &> /dev/null; then
-        echo "gext not found. Installing..."
+        echo -e "gext not found. Installing..."
         pipx install gnome-extensions-cli --system-site-packages || {
-            echo "${R}[ ERROR ]${N} gext installation failed!" >&2
+            echo -e "${R}[ ERROR ]${N} gext installation failed!" >&2
             exit 1
         }
         sleep 2  # wait for install to settle
     
         if command -v gext &> /dev/null; then
-            echo "gext installed successfully."
+            echo -e "gext installed successfully."
         else
-            echo "${R}[ ERROR ]${N} gext installation failed!" >&2
-            echo "Restarting the terminal might help" >&2
+            echo -e "${R}[ ERROR ]${N} gext installation failed!" >&2
+            echo -e "Restarting the terminal might help" >&2
             exit 1
         fi
     fi
@@ -168,17 +169,13 @@ install_required_softs() {
 }
 
 configure_firefox() {
-
-    #================================================#
-    #              Check Firefox Status              #
-    #================================================#
 	
     pkill firefox || true
     
     if command -v firefox &> /dev/null; then
-        echo "Firefox is found. preceeding..."
+        echo -e "Firefox is found. preceeding..."
     else
-        echo "Firefox is not installed."
+        echo -e "Firefox is not installed."
         exit 1
     fi
 
@@ -195,11 +192,11 @@ configure_firefox() {
 
     # 3. Verify the profile and check the onboarding status
     if [ -z "$USER_PROFILE" ] || [ ! -f "$USER_PROFILE/prefs.js" ]; then
-        echo "${R}[ ERROR ]${N} Firefox profile has not been created yet. Launch Firefox once first."
+        echo -e "${R}[ ERROR ]${N} Firefox profile has not been created yet. Launch Firefox once first."
         exit 1
     fi
 
-    echo "Configuring required Firefox flags..."
+    echo -e "Configuring required Firefox flags..."
 
     # Define the flags to enable
     declare -A FIREFOX_FLAGS=(
@@ -215,13 +212,13 @@ configure_firefox() {
         if grep -q "^user_pref(\"$flag\"" "$USER_PROFILE/prefs.js"; then
             # Update existing flag
             sed -i "s/^user_pref(\"$flag\", .*);/user_pref(\"$flag\", $value);/" "$USER_PROFILE/prefs.js" || {
-                echo "${R}[ ERROR ]${N} Failed to update Firefox flag $flag" >&2
+                echo -e "${R}[ ERROR ]${N} Failed to update Firefox flag $flag" >&2
                 exit 1
             }
         else
             # Append new flag
-            echo "user_pref(\"$flag\", $value);" >> "$USER_PROFILE/prefs.js" || {
-                echo "${R}[ ERROR ]${N} Failed to append Firefox flag $flag" >&2
+            echo -e "user_pref(\"$flag\", $value);" >> "$USER_PROFILE/prefs.js" || {
+                echo -e "${R}[ ERROR ]${N} Failed to append Firefox flag $flag" >&2
                 exit 1
             }
         fi
@@ -229,7 +226,7 @@ configure_firefox() {
     
 }
 
-install_gnome_extensions(){
+install_gnome_extensions() {
     extensions=(
         1488
         19
@@ -253,93 +250,94 @@ install_gnome_extensions(){
         #Fuzzy search, User themes, Compiz alike magic lamp effect, Blur my shell, Just perfection, Notification banner position, Clipboard indicator, Space bar, gnome 4x 5x improvement, Ubuntu tilting assistant, App menu is back, Fildem global menu, Coverflow alt+tab, Rounded corners, Dash2dock animated, Gesture improvements, Kiwi is not apple, Global Menu for Gnome
   
       for ext in "${extensions[@]}"; do
-        echo "Installing extension $ext..."
+        echo -e "Installing extension $ext..."
         gext install "$ext" || {
-          echo "Warning: Failed to install extension $ext"
+          echo -e "Warning: Failed to install extension $ext"
           continue
         }
         gext enable "$ext" || {
-          echo "Warning: Failed to enable extension $ext"
+          echo -e "Warning: Failed to enable extension $ext"
         }
       done
       
       gext disable ubuntu-dock@ubuntu.com 
 }
 
-install_theme(){
+install_theme() {
     # Save current directory and use subshell to prevent directory pollution
     local theme_work_dir
     theme_work_dir="$TMP/theme_install_$$"
     mkdir -p "$theme_work_dir"
     
-    (
         cd "$theme_work_dir" || exit 1
         
         git clone https://github.com/vinceliuice/MacTahoe-gtk-theme.git --depth=1 || {
-            echo "${R}[ ERROR ]${N} Failed to clone MacTahoe-gtk-theme" >&2
+            echo -e "${R}[ ERROR ]${N} Failed to clone MacTahoe-gtk-theme" >&2
             exit 1
         }
-		
-        sudo .$theme_work_dir/MacTahoe-gtk-theme/install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode || {
-            echo "${R}[ ERROR ]${N} Failed to install MacTahoe-gtk-theme" >&2
+        sudo ."$theme_work_dir"/MacTahoe-gtk-theme/install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode || {
+            echo -e "${R}[ ERROR ]${N} Failed to install MacTahoe-gtk-theme" >&2
             exit 1
         }
-        .$theme_work_dir/MacTahoe-gtk-theme/install.sh -l -o normal -b --shell -i apple -h smaller -sf --round || {
-            echo "${R}[ ERROR ]${N} Failed to configure MacTahoe-gtk-theme for libadwaita" >&2
+        ."$theme_work_dir"/MacTahoe-gtk-theme/install.sh -l -o normal -b --shell -i apple -h smaller -sf --round || {
+            echo -e "${R}[ ERROR ]${N} Failed to configure MacTahoe-gtk-theme for libadwaita" >&2
             exit 1
         }
-        sudo .$theme_work_dir/MacTahoe-gtk-theme/tweaks.sh -g -sf -nd -nb || {
-            echo "${R}[ ERROR ]${N} Failed to apply tweaks (step 1)" >&2
+        sudo ."$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -g -sf -nd -nb || {
+            echo -e "${R}[ ERROR ]${N} Failed to apply tweaks (step 1)" >&2
             exit 1
         }
-        .$theme_work_dir/MacTahoe-gtk-theme/tweaks.sh -f || {
-            echo "${R}[ ERROR ]${N} Failed to apply tweaks (step 2)" >&2
+        ."$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -f || {
+            echo -e "${R}[ ERROR ]${N} Failed to apply tweaks (step 2)" >&2
             exit 1
         }
-        .$theme_work_dir/MacTahoe-gtk-theme/tweaks.sh -f adaptive || {
-            echo "${R}[ ERROR ]${N} Failed to apply tweaks (step 3)" >&2
+        ."$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -f adaptive || {
+            echo -e "${R}[ ERROR ]${N} Failed to apply tweaks (step 3)" >&2
             exit 1
         }
         sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || {
-            echo "${R}[ ERROR ]${N} failed to override Flatpak theme"
+            echo -e "${R}[ ERROR ]${N} failed to override Flatpak theme"
             exit 1
         }
-        .$theme_work_dir/MacTahoe-gtk-theme/tweaks.sh -F -c Dark || {
-            echo "${R}[ ERROR ]${N} Failed to apply tweaks (step 4)" >&2
+        ."$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -F -c Dark || {
+            echo -e "${R}[ ERROR ]${N} Failed to apply tweaks (step 4)" >&2
             exit 1
         }
 
         git clone https://github.com/vinceliuice/MacTahoe-icon-theme.git --depth=1 || {
-            echo "${R}[ ERROR ]${N} Failed to clone MacTahoe-icon-theme" >&2
+            echo -e "${R}[ ERROR ]${N} Failed to clone MacTahoe-icon-theme" >&2
             exit 1
         }
 		
-        .$theme_work_dir/MacTahoe-icon-theme/install.sh -b || {
-            echo "${R}[ ERROR ]${N} Failed to install MacTahoe-icon-theme" >&2
+        ."$theme_work_dir"/MacTahoe-icon-theme/install.sh -b || {
+            echo -e "${R}[ ERROR ]${N} Failed to install MacTahoe-icon-theme" >&2
             exit 1
         }
 
-        sudo .$theme_work_dir/MacTahoe-icon-theme/cursors/install.sh || {
-            echo "${R}[ ERROR ]${N} Failed to install cursors" >&2
+        sudo ."$theme_work_dir"/MacTahoe-icon-theme/cursors/install.sh || {
+            echo -e "${R}[ ERROR ]${N} Failed to install cursors" >&2
             exit 1
         }
 
         git clone https://github.com/kayozxo/GNOME-macOS-Tahoe.git --depth=1 || {
-            echo "${R}[ ERROR ]${N} Failed to clone GNOME-macOS-Tahoe"
+            echo -e "${R}[ ERROR ]${N} Failed to clone GNOME-macOS-Tahoe"
             exit 1
         }
 
-        .$theme_work_dir/GNOME-macOS-Tahoe/install.sh -w || exit 1
+        ."$theme_work_dir"/GNOME-macOS-Tahoe/install.sh -w || exit 1
         
-        .$theme_work_dir/GNOME-macOS-Tahoe/install.sh -d -l || exit 1
-        .$theme_work_dir/GNOME-macOS-Tahoe/install.sh -d -l -la || exit 1
+        ."$theme_work_dir"/GNOME-macOS-Tahoe/install.sh -d -l || exit 1
+		
+        ."$theme_work_dir"/GNOME-macOS-Tahoe/install.sh -d -l -la || exit 1
+		
         sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || exit 1
-        .$theme_work_dir/GNOME-macOS-Tahoe/install.sh --flatpak || exit 1
+		
+        ."$theme_work_dir"/GNOME-macOS-Tahoe/install.sh --flatpak || exit 1
 
 }
 
 
-apply_settings(){
+apply_settings() {
 	#apply setting for gnome tweak managed settings
 	gsettings set org.gnome.desktop.interface gtk-theme "MacTahoe-Dark"
 	gsettings set org.gnome.desktop.interface icon-theme "MacTahoe-dark"
