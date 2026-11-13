@@ -14,7 +14,7 @@ set_variables() {
 	
 }
 
-safty_wrappers() {
+safety_wrappers() {
 	# Save the original dir
 	ORIGINAL_DIR="$(pwd)"
 
@@ -62,14 +62,17 @@ check_compatible() {
     echo -e "${L}Environment verified: ubuntu with GNOME on Wayland. Proceeding..."
 
     if command -v curl &> /dev/null; then
-		echo -e "${L}curl exisists. Proceeding.."
+		echo -e "${L}curl exists. Proceeding.."
 	else
-		echo -e "${W}curl doesn't exsist. installing..."
-		sudo apt -qq -y install curl
-		echo -e "{L}curl installed. Proceeding..."
+		echo -e "${W}curl doesn't exist. installing..."
+		sudo apt -qq -y install curl || {
+			echo -e "${E}Failed to install curl via apt."
+			exit 1
+		}
+		echo -e "${L}curl installed. Proceeding..."
 	fi
 	
-	if ! curl --connect-timeout 5 -sI github.com &> /dev/null; then
+	if ! curl --connect-timeout 5 -sI https://github.com &> /dev/null; then
         echo -e "${E}This script requires an active internet connection."
         exit 1
     fi
@@ -84,14 +87,12 @@ install_required_softs() {
 	)
 
 	  for repo in "${REPOS[@]}"; do
-	  	if ! grep -q "$repo" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
-        	echo -e "${L}Adding apt repository $repo..."
-	        sudo add-apt-repository "$repo" -y -n || { #use -n option to prevent updating after adding the repo
-				echo -e "${E}Failed to add repository $repo"
-				echo -e "${L}Continuing anyways..."
-	    		continue
-        	}
-		fi
+        echo -e "${L}Adding apt repository $repo..."
+        sudo add-apt-repository "$repo" -y -n || { #use -n option to prevent updating after adding the repo
+			echo -e "${E}Failed to add repository $repo"
+			echo -e "${L}Continuing anyways..."
+    		continue
+        }
       done
 
     local REQUIRED_PACKAGES=(
@@ -131,9 +132,9 @@ install_required_softs() {
     sudo apt -q update
     
     for package in "${REQUIRED_PACKAGES[@]}"; do
-        echo -e "${L}Installing software $ext..."
+        echo -e "${L}Installing software $package..."
         sudo apt -q -y install "$package" || {
-          echo -e "${E}Failed to install package $ext"
+          echo -e "${E}Failed to install package $package"
 		  echo -e "${L}Continuing anyways..."
           continue
         }
@@ -149,13 +150,14 @@ install_required_softs() {
 
 
     pipx ensurepath
-    source ~/.bashrc
     export PATH="$PATH:$HOME/.local/bin"
 
-    sudo pip install future fuzzysearch --break-system-packages
+    sudo pip install future fuzzysearch --break-system-packages || {
+        echo -e "${W}pip install failed (possibly unsupported on this pip version). Continuing..."
+    }
     
     if ! command -v gext &> /dev/null; then
-        echo -e "${W}}gext not found. Installing..."
+        echo -e "${W}gext not found. Installing..."
         pipx install gnome-extensions-cli --system-site-packages || {
             echo -e "${E}gext installation failed!" >&2
             exit 1
@@ -175,12 +177,18 @@ install_required_softs() {
 
 configure_firefox() {
 	
-    pkill firefox || true
+    pkill -f firefox || true
+    
+    # Wait for Firefox to fully exit before touching prefs.js
+    for i in {1..10}; do
+        pgrep -f firefox &> /dev/null || break
+        sleep 1
+    done
     
     if command -v firefox &> /dev/null; then
-        echo -e "${L}Firefox is found. preceeding..."
+        echo -e "${L}Firefox is found. proceeding..."
     else
-        echo -e "${L}Firefox is not installed."
+        echo -e "${E}Firefox is not installed."
         exit 1
     fi
 
@@ -197,7 +205,7 @@ configure_firefox() {
 
     #Verify the profile and check the onboarding status
     if [ -z "$USER_PROFILE" ] || [ ! -f "$USER_PROFILE/prefs.js" ]; then
-        echo -e "${E}Firefox profile has not been created yet. Launch Firefox once first."
+        echo -e "${E}Firefox profile has not been created yet. Launch Firefox once first." >&2
         exit 1
     fi
 
@@ -212,11 +220,12 @@ configure_firefox() {
 
     for flag in "${!FIREFOX_FLAGS[@]}"; do
         value="${FIREFOX_FLAGS[$flag]}"
+        escaped_flag="${flag//./\\.}"
 
         # Check if flag already exists
         if grep -q "^user_pref(\"$flag\"" "$USER_PROFILE/prefs.js"; then
             # Update existing flag
-            sed -i "s/^user_pref(\"$flag\", .*);/user_pref(\"$flag\", $value);/" "$USER_PROFILE/prefs.js" || {
+            sed -i "s/^user_pref(\"$escaped_flag\", .*);/user_pref(\"$flag\", $value);/" "$USER_PROFILE/prefs.js" || {
                 echo -e "${E}Failed to update Firefox flag $flag" >&2
                 exit 1
             }
@@ -232,7 +241,7 @@ configure_firefox() {
 }
 
 install_gnome_extensions() {
-    extensions=(
+    local extensions=(
         1488
         19
         3740
@@ -270,6 +279,10 @@ install_gnome_extensions() {
       gext disable ubuntu-dock@ubuntu.com || true
 }
 
+override_flatpak_theme() {
+    sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0
+}
+
 install_theme() {
     # Save current directory and use subshell to prevent directory pollution
     local theme_work_dir
@@ -282,31 +295,31 @@ install_theme() {
             echo -e "${E}Failed to clone MacTahoe-gtk-theme" >&2
             exit 1
         }
-        sudo ."$theme_work_dir"/MacTahoe-gtk-theme/install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode || {
+        sudo "$theme_work_dir"/MacTahoe-gtk-theme/install.sh -o normal -b --shell -i apple -h smaller -sf --round --silent-mode || {
             echo -e "${E}Failed to install MacTahoe-gtk-theme" >&2
             exit 1
         }
-        ."$theme_work_dir"/MacTahoe-gtk-theme/install.sh -l -o normal -b --shell -i apple -h smaller -sf --round || {
+        "$theme_work_dir"/MacTahoe-gtk-theme/install.sh -l -o normal -b --shell -i apple -h smaller -sf --round || {
             echo -e "${E}Failed to configure MacTahoe-gtk-theme for libadwaita" >&2
             exit 1
         }
-        sudo ."$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -g -sf -nd -nb || {
+        sudo "$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -g -sf -nd -nb || {
             echo -e "${E}Failed to apply tweaks (step 1)" >&2
             exit 1
         }
-        ."$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -f || {
+        "$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -f || {
             echo -e "${E}Failed to apply tweaks (step 2)" >&2
             exit 1
         }
-        ."$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -f adaptive || {
+        "$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -f adaptive || {
             echo -e "${E}Failed to apply tweaks (step 3)" >&2
             exit 1
         }
-        sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || {
+        override_flatpak_theme || {
             echo -e "${E}failed to override Flatpak theme"
             exit 1
         }
-        ."$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -F -c Dark || {
+        "$theme_work_dir"/MacTahoe-gtk-theme/tweaks.sh -F -c Dark || {
             echo -e "${E}Failed to apply tweaks (step 4)" >&2
             exit 1
         }
@@ -316,12 +329,12 @@ install_theme() {
             exit 1
         }
 		
-        ."$theme_work_dir"/MacTahoe-icon-theme/install.sh -b || {
+        "$theme_work_dir"/MacTahoe-icon-theme/install.sh -b || {
             echo -e "${E}Failed to install MacTahoe-icon-theme" >&2
             exit 1
         }
 
-        sudo ."$theme_work_dir"/MacTahoe-icon-theme/cursors/install.sh || {
+        sudo "$theme_work_dir"/MacTahoe-icon-theme/cursors/install.sh || {
             echo -e "${E}Failed to install cursors" >&2
             exit 1
         }
@@ -331,17 +344,18 @@ install_theme() {
             exit 1
         }
 
-        ."$theme_work_dir"/GNOME-macOS-Tahoe/install.sh -w || exit 1
+        "$theme_work_dir"/GNOME-macOS-Tahoe/install.sh -w || exit 1
         
-        ."$theme_work_dir"/GNOME-macOS-Tahoe/install.sh -d -l || exit 1
+        "$theme_work_dir"/GNOME-macOS-Tahoe/install.sh -d -l || exit 1
 		
-        ."$theme_work_dir"/GNOME-macOS-Tahoe/install.sh -d -l -la || exit 1
+        "$theme_work_dir"/GNOME-macOS-Tahoe/install.sh -d -l -la || exit 1
 		
-        sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || exit 1
+        override_flatpak_theme || exit 1
 		
-        ."$theme_work_dir"/GNOME-macOS-Tahoe/install.sh --flatpak || exit 1
+        "$theme_work_dir"/GNOME-macOS-Tahoe/install.sh --flatpak || exit 1
 
 }
+
 
 apply_settings() {
 	#apply setting for gnome tweak managed settings
@@ -360,7 +374,7 @@ apply_settings() {
 
 main() {
 	set_variables
-	safty_wrappers
+	safety_wrappers
     check_compatible
     install_required_softs
     configure_firefox
