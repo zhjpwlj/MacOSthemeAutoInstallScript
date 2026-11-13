@@ -60,17 +60,17 @@ check_compatible() {
         exit 1
     fi
     
-    echo -e "${L}Environment verified: ubuntu with GNOME on Wayland. Proceeding..."
+    echo -e "${S}Environment verified: ubuntu with GNOME on Wayland. Proceeding..."
 
     if command -v curl &> /dev/null; then
-		echo -e "${L}curl exists. Proceeding.."
+		echo -e "${S}curl exists. Proceeding.."
 	else
 		echo -e "${W}curl doesn't exist. installing..."
 		sudo apt -qq -y install curl || {
 			echo -e "${E}Failed to install curl via apt."
 			exit 1
 		}
-		echo -e "${L}curl installed. Proceeding..."
+		echo -e "${S}curl installed. Proceeding..."
 	fi
 	
 	if ! curl --connect-timeout 5 -sI https://github.com &> /dev/null; then
@@ -168,7 +168,7 @@ install_required_softs() {
         sleep 2  # wait for install to settle
     
         if command -v gext &> /dev/null; then
-            echo -e "${L}gext installed successfully."
+            echo -e "${S}gext installed successfully."
         else
             echo -e "${E}gext installation failed!" >&2
             echo -e "${L}Restarting the terminal might help" >&2
