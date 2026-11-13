@@ -164,6 +164,7 @@ install_required_softs() {
             exit 1
         fi
     fi
+
 }
 
 configure_firefox() {
@@ -334,7 +335,8 @@ install_theme(){
         .$theme_work_dir/GNOME-macOS-Tahoe/install.sh -d -l -la || exit 1
         sudo flatpak override --filesystem=xdg-config/gtk-3.0 && sudo flatpak override --filesystem=xdg-config/gtk-4.0 || exit 1
         .$theme_work_dir/GNOME-macOS-Tahoe/install.sh --flatpak || exit 1
-	}
+
+}
 
 
 apply_settings(){
