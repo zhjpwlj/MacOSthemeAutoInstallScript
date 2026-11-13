@@ -11,6 +11,7 @@ set_variables() {
 	E="${R}[ ERROR ]${N} "
 	W="${O}[WARNING]${N} "
 	L="${B}[  LOG  ]${N} "
+	S="${G}[SUCCESS]${N} "
 	
 }
 
